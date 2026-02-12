@@ -15,7 +15,7 @@ class StaffController extends Controller
     public function index()
     {
         $staff = Staff::query()->with(['user', 'role'])->orderBy('position')->orderByDesc('id')->paginate(20);
-        return view('admin.staff.index', compact('staff'));
+        return view('staff.index', compact('staff'));
     }
 
     public function create()
@@ -23,7 +23,7 @@ class StaffController extends Controller
         $roles = Role::query()->orderBy('role_key')->get();
         $users = User::query()->orderBy('name')->get();
 
-        return view('admin.staff.create', compact('roles', 'users'));
+        return view('staff.create', compact('roles', 'users'));
     }
 
     public function store(Request $request)
@@ -52,7 +52,7 @@ class StaffController extends Controller
             'role_id' => $row->role_id,
         ]);
 
-        return redirect()->route('admin.staff.index')->with('status', 'Staff member created.');
+        return redirect()->route('staff.index')->with('status', 'Staff member created.');
     }
 
     public function edit(Staff $staffMember)
@@ -62,7 +62,7 @@ class StaffController extends Controller
         $roles = Role::query()->orderBy('role_key')->get();
         $users = User::query()->orderBy('name')->get();
 
-        return view('admin.staff.edit', [
+        return view('staff.edit', [
             'staffMember' => $staffMember,
             'roles' => $roles,
             'users' => $users,
@@ -95,7 +95,7 @@ class StaffController extends Controller
             'role_id' => $staffMember->role_id,
         ]);
 
-        return redirect()->route('admin.staff.index')->with('status', 'Staff member updated.');
+        return redirect()->route('staff.index')->with('status', 'Staff member updated.');
     }
 
     public function destroy(Request $request, Staff $staffMember)
@@ -107,6 +107,6 @@ class StaffController extends Controller
 
         $staffMember->delete();
 
-        return redirect()->route('admin.staff.index')->with('status', 'Staff member deleted.');
+        return redirect()->route('staff.index')->with('status', 'Staff member deleted.');
     }
 }

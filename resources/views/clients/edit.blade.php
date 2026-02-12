@@ -8,7 +8,7 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h3 mb-0">Edit Client</h1>
         <a href="{{ route('clients.index') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i> Back
+            <i class="fas fa-arrow-left mr-2"></i> Back
         </a>
     </div>
 
@@ -17,9 +17,7 @@
     @endif
 
     <div class="card">
-        <div class="card-header">
-            <strong>Client Details</strong>
-        </div>
+        <div class="card-header"><strong>Client Details</strong></div>
 
         <div class="card-body">
             <form method="POST" action="{{ route('clients.update', $client) }}">
@@ -107,7 +105,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save me-2"></i> Save Changes
+                    <i class="fas fa-save mr-2"></i> Save Changes
                 </button>
             </form>
         </div>

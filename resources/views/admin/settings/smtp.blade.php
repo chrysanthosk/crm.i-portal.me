@@ -1,156 +1,115 @@
 @extends('layouts.app')
 
-@section('title', 'Settings - SMTP')
+@section('title', 'SMTP Settings')
 
 @section('content')
 <div class="container-fluid">
 
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h1 class="h3 mb-0">Settings / SMTP</h1>
-  </div>
-
-  {{-- If your controller passes $missingTable --}}
-  @if(!empty($missingTable))
-    <div class="alert alert-danger">
-      <strong>SMTP settings table is missing.</strong><br>
-      Run:
-      <pre class="mb-0 mt-2"><code>php artisan migrate
-php artisan db:seed --class=Database\\Seeders\\SmtpSettingSeeder --force</code></pre>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h3 mb-0">SMTP</h1>
     </div>
-  @else
 
-    {{-- Validation / test errors --}}
-    @if ($errors->any())
-      <div class="alert alert-danger">
-        <strong>Please fix the errors below.</strong>
-      </div>
+    @if (session('status'))
+    <div class="alert alert-success">{{ session('status') }}</div>
     @endif
 
-    @if($errors->has('smtp_test'))
-      <div class="alert alert-danger">
-        {{ $errors->first('smtp_test') }}
-      </div>
+    @if ($errors->any())
+    <div class="alert alert-danger">Please fix the errors below.</div>
     @endif
 
     <div class="card">
-      <div class="card-header d-flex align-items-center justify-content-between">
-        <strong>SMTP Configuration</strong>
+        <div class="card-header"><strong>SMTP Settings</strong></div>
 
-        {{-- Last test timestamp --}}
-        <div class="text-muted small">
-          Last test:
-          <strong>
-            @if(!empty($smtp?->last_tested_at))
-              {{ \Illuminate\Support\Carbon::parse($smtp->last_tested_at)->format('Y-m-d H:i:s') }}
-            @else
-              Never
-            @endif
-          </strong>
+        <div class="card-body">
+
+            {{-- UPDATE SETTINGS --}}
+            <form method="POST" action="{{ route('settings.smtp.update') }}">
+                @csrf
+                @method('PUT')
+
+                <div class="form-check mb-3">
+                    <input type="hidden" name="enabled" value="0">
+                    <input class="form-check-input" type="checkbox" id="enabled" name="enabled" value="1"
+                           @checked(old('enabled', (int)($smtp?->enabled ?? 0)) === 1)>
+                    <label class="form-check-label" for="enabled">Enable SMTP</label>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Host</label>
+                        <input class="form-control" name="host" value="{{ old('host', $smtp->host ?? '') }}">
+                        @error('host') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Port</label>
+                        <input class="form-control" name="port" value="{{ old('port', $smtp->port ?? '') }}">
+                        @error('port') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Encryption</label>
+                        <select class="form-control" name="encryption">
+                            @php $enc = old('encryption', $smtp->encryption ?? 'tls'); @endphp
+                            <option value="">None</option>
+                            <option value="tls" @selected($enc === 'tls')>TLS</option>
+                            <option value="ssl" @selected($enc === 'ssl')>SSL</option>
+                        </select>
+                        @error('encryption') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Username</label>
+                        <input class="form-control" name="username" value="{{ old('username', $smtp->username ?? '') }}">
+                        @error('username') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Password</label>
+                        <input class="form-control" name="password" type="password" value="{{ old('password', $smtp->password ?? '') }}">
+                        @error('password') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">From Email</label>
+                        <input class="form-control" name="from_email" value="{{ old('from_email', $smtp->from_email ?? '') }}">
+                        @error('from_email') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">From Name</label>
+                        <input class="form-control" name="from_name" value="{{ old('from_name', $smtp->from_name ?? '') }}">
+                        @error('from_name') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+                </div>
+
+                <button class="btn btn-primary">
+                    <i class="fas fa-save me-2"></i> Save SMTP Settings
+                </button>
+
+            </form>
+
+            <hr>
+
+            {{-- TEST EMAIL --}}
+            <form method="POST" action="{{ route('settings.smtp.test') }}" class="mt-3">
+                @csrf
+                <div class="row">
+                    <div class="col-md-8 mb-2">
+                        <label class="form-label">Send test email to</label>
+                        <input class="form-control" name="to" value="{{ old('to', auth()->user()->email) }}" required>
+                        @error('to') <div class="text-danger small">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end mb-2">
+                        <button class="btn btn-outline-secondary w-100">
+                            <i class="fas fa-paper-plane me-2"></i> Send Test Email
+                        </button>
+                    </div>
+                </div>
+            </form>
+
         </div>
-      </div>
-
-      <div class="card-body">
-
-        {{-- UPDATE SETTINGS --}}
-        <form method="POST" action="{{ route('admin.settings.smtp.update') }}">
-          @csrf
-          @method('PUT')
-
-          <div class="form-check mb-3">
-            {{-- Ensure unchecked submits 0 --}}
-            <input type="hidden" name="enabled" value="0">
-            <input class="form-check-input" type="checkbox" id="enabled" name="enabled" value="1"
-                   @checked(old('enabled', (int)($smtp?->enabled ?? 0)) === 1)>
-            <label class="form-check-label" for="enabled">
-              Enable SMTP
-            </label>
-          </div>
-
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Host</label>
-              <input type="text" name="host" class="form-control" value="{{ old('host', $smtp?->host) }}" autocomplete="off">
-              @error('host') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-3 mb-3">
-              <label class="form-label">Port</label>
-              <input type="number" name="port" class="form-control" value="{{ old('port', $smtp?->port) }}" min="1" max="65535">
-              @error('port') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-3 mb-3">
-              <label class="form-label">Encryption</label>
-              <select name="encryption" class="form-control">
-                <option value="" @selected(old('encryption', $smtp?->encryption) === null || old('encryption', $smtp?->encryption) === '')>None</option>
-                <option value="tls" @selected(old('encryption', $smtp?->encryption) === 'tls')>TLS</option>
-                <option value="ssl" @selected(old('encryption', $smtp?->encryption) === 'ssl')>SSL</option>
-              </select>
-              @error('encryption') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Username</label>
-              <input type="text" name="username" class="form-control" value="{{ old('username', $smtp?->username) }}" autocomplete="off">
-              @error('username') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Password</label>
-              <input type="password" name="password" class="form-control" value="" autocomplete="new-password">
-              <div class="text-muted small mt-1">Leave blank to keep existing password.</div>
-              @error('password') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-6 mb-3">
-              <label class="form-label">From Address</label>
-              <input type="email" name="from_address" class="form-control" value="{{ old('from_address', $smtp?->from_address) }}">
-              @error('from_address') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-6 mb-3">
-              <label class="form-label">From Name</label>
-              <input type="text" name="from_name" class="form-control" value="{{ old('from_name', $smtp?->from_name) }}">
-              @error('from_name') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-          </div>
-
-          <div class="d-flex flex-wrap gap-2 mt-2">
-            <button class="btn btn-primary" type="submit">
-              <i class="fas fa-save"></i> Save SMTP Settings
-            </button>
-          </div>
-        </form>
-
-        <hr>
-
-        {{-- TEST SMTP --}}
-        <form method="POST" action="{{ route('admin.settings.smtp.test') }}">
-          @csrf
-
-          <div class="row align-items-end">
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Test Email Address</label>
-              <input type="email" name="test_email" class="form-control"
-                     value="{{ old('test_email', auth()->user()->email ?? '') }}"
-                     placeholder="you@company.com" required>
-              <div class="text-muted small mt-1">
-                Sends a test email using the current saved SMTP settings.
-              </div>
-              @error('test_email') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-3 mb-3">
-              <button type="submit" class="btn btn-outline-secondary w-100">
-                <i class="fas fa-paper-plane"></i> Send Test Email
-              </button>
-            </div>
-          </div>
-        </form>
-
-      </div>
     </div>
-  @endif
 
 </div>
 @endsection

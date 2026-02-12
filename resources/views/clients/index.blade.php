@@ -8,14 +8,12 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h3 mb-0">Clients</h1>
         <a href="{{ route('clients.create') }}" class="btn btn-primary">
-            <i class="fas fa-user-tag me-2"></i> Add Client
+            <i class="fas fa-user-tag mr-2"></i> Add Client
         </a>
     </div>
 
     <div class="card">
-        <div class="card-header">
-            <strong>Client List</strong>
-        </div>
+        <div class="card-header"><strong>Client List</strong></div>
 
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -42,9 +40,7 @@
                         <td>{{ optional($c->dob)->format('Y-m-d') }}</td>
                         <td class="text-monospace">{{ $c->mobile }}</td>
                         <td class="text-monospace">{{ $c->email }}</td>
-                        <td>
-                            <span class="badge bg-secondary">{{ $c->gender }}</span>
-                        </td>
+                        <td><span class="badge bg-secondary">{{ $c->gender }}</span></td>
                         <td>{{ optional($c->registration_date)->format('Y-m-d H:i') }}</td>
                         <td class="text-end">
                             <a href="{{ route('clients.edit', $c) }}" class="btn btn-sm btn-outline-primary">
@@ -73,9 +69,7 @@
         </div>
 
         @if(method_exists($clients, 'links'))
-        <div class="card-footer">
-            {{ $clients->links() }}
-        </div>
+        <div class="card-footer">{{ $clients->links() }}</div>
         @endif
     </div>
 

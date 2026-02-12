@@ -8,7 +8,7 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h3 mb-0">Create Client</h1>
         <a href="{{ route('clients.index') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i> Back
+            <i class="fas fa-arrow-left mr-2"></i> Back
         </a>
     </div>
 
@@ -17,9 +17,7 @@
     @endif
 
     <div class="card">
-        <div class="card-header">
-            <strong>Client Details</strong>
-        </div>
+        <div class="card-header"><strong>Client Details</strong></div>
 
         <div class="card-body">
             <form method="POST" action="{{ route('clients.store') }}">
@@ -28,8 +26,7 @@
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Registration Date (optional)</label>
-                        <input type="datetime-local" name="registration_date" class="form-control"
-                               value="{{ old('registration_date') }}">
+                        <input type="datetime-local" name="registration_date" class="form-control" value="{{ old('registration_date') }}">
                         @error('registration_date') <div class="text-danger small">{{ $message }}</div> @enderror
                         <div class="text-muted small mt-1">Leave empty to use current time.</div>
                     </div>
@@ -100,7 +97,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save me-2"></i> Create Client
+                    <i class="fas fa-save mr-2"></i> Create Client
                 </button>
             </form>
         </div>
