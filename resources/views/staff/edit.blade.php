@@ -7,8 +7,8 @@
 
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h3 mb-0">Edit Staff</h1>
-        <a href="{{ route('admin.staff.index') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i> Back
+        <a href="{{ route('staff.index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left mr-2"></i> Back
         </a>
     </div>
 
@@ -17,12 +17,10 @@
     @endif
 
     <div class="card">
-        <div class="card-header">
-            <strong>Staff Details</strong>
-        </div>
+        <div class="card-header"><strong>Staff Details</strong></div>
 
         <div class="card-body">
-            <form method="POST" action="{{ route('admin.staff.update', $staffMember) }}">
+            <form method="POST" action="{{ route('staff.update', $staffMember) }}">
                 @csrf
                 @method('PUT')
 
@@ -67,34 +65,20 @@
                         @error('dob') <div class="text-danger small">{{ $message }}</div> @enderror
                     </div>
 
-                    {{-- ✅ Color picker + live code + preview --}}
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Color</label>
 
-                        @php
-                        $initialColor = old('color', $staffMember->color ?? '#000000');
-                        @endphp
-
                         <div class="d-flex align-items-center">
-                            <input type="color"
-                                   id="color_picker"
-                                   class="form-control p-1"
-                                   style="width: 64px; height: 38px;"
-                                   value="{{ $initialColor }}">
+                            <input type="color" id="color_picker" class="form-control" style="max-width:90px;"
+                                   value="{{ old('color', $staffMember->color) }}">
+                            <input type="text" id="color_text" name="color" class="form-control ml-2"
+                                   value="{{ old('color', $staffMember->color) }}" required>
+                        </div>
 
-                            <input type="text"
-                                   id="color_text"
-                                   name="color"
-                                   class="form-control ml-2"
-                                   value="{{ $initialColor }}"
-                                   placeholder="#000000"
-                                   required>
-
-                            <span id="color_badge"
-                                  class="badge ml-2"
-                                  style="background: {{ $initialColor }}; min-width: 84px;">
-                                {{ $initialColor }}
-                            </span>
+                        <div class="mt-2">
+              <span class="badge" id="color_preview_badge" style="background:{{ old('color', $staffMember->color) }}; color:#fff;">
+                <span id="color_preview_text">{{ strtoupper(old('color', $staffMember->color)) }}</span>
+              </span>
                         </div>
 
                         @error('color') <div class="text-danger small">{{ $message }}</div> @enderror
@@ -103,11 +87,8 @@
                     <div class="col-md-4 mb-3">
                         <label class="form-label d-block">Show in Calendar</label>
                         <div class="custom-control custom-switch">
-                            <input type="checkbox"
-                                   class="custom-control-input"
-                                   id="show_in_calendar"
-                                   name="show_in_calendar"
-                                   value="1"
+                            <input type="checkbox" class="custom-control-input" id="show_in_calendar"
+                                   name="show_in_calendar" value="1"
                                    {{ old('show_in_calendar', $staffMember->show_in_calendar ? '1' : '') ? 'checked' : '' }}>
                             <label class="custom-control-label" for="show_in_calendar">Enabled</label>
                         </div>
@@ -117,17 +98,14 @@
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Annual Leave Days</label>
                         <input type="number" step="0.1" min="0" max="365"
-                               name="annual_leave_days"
-                               class="form-control"
+                               name="annual_leave_days" class="form-control"
                                value="{{ old('annual_leave_days', (string)$staffMember->annual_leave_days) }}">
                         @error('annual_leave_days') <div class="text-danger small">{{ $message }}</div> @enderror
                     </div>
 
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Position</label>
-                        <input type="number" min="0"
-                               name="position"
-                               class="form-control"
+                        <input type="number" min="0" name="position" class="form-control"
                                value="{{ old('position', (string)$staffMember->position) }}">
                         @error('position') <div class="text-danger small">{{ $message }}</div> @enderror
                     </div>
@@ -135,51 +113,43 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save me-2"></i> Save Changes
+                    <i class="fas fa-save mr-2"></i> Save Changes
                 </button>
             </form>
         </div>
     </div>
 
 </div>
+@endsection
 
-{{-- ✅ Live sync script --}}
+@push('scripts')
 <script>
-    (function () {
+    (function(){
         const picker = document.getElementById('color_picker');
         const text   = document.getElementById('color_text');
-        const badge  = document.getElementById('color_badge');
+        const badge  = document.getElementById('color_preview_badge');
+        const label  = document.getElementById('color_preview_text');
 
-        if (!picker || !text || !badge) return;
+        function normalizeHex(v){
+            v = (v || '').trim();
+            if (!v) return '#000000';
+            if (v[0] !== '#') v = '#'+v;
+            if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v;
+            return '#000000';
+        }
 
-        const normalizeHex = (v) => {
-            if (!v) return null;
-            v = v.trim();
-            if (!v.startsWith('#')) v = '#' + v;
-            if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return null;
-            return v.toUpperCase();
-        };
-
-        const applyColor = (hex) => {
-            badge.style.background = hex;
-            badge.textContent = hex;
-            text.value = hex;
+        function syncFrom(value){
+            const hex = normalizeHex(value);
             picker.value = hex;
-        };
+            text.value = hex;
+            badge.style.background = hex;
+            label.textContent = hex.toUpperCase();
+        }
 
-        picker.addEventListener('input', () => {
-            const hex = normalizeHex(picker.value);
-            if (hex) applyColor(hex);
-        });
+        picker.addEventListener('input', () => syncFrom(picker.value));
+        text.addEventListener('input', () => syncFrom(text.value));
 
-        text.addEventListener('input', () => {
-            const hex = normalizeHex(text.value);
-            if (hex) applyColor(hex);
-            else badge.textContent = text.value.trim();
-        });
-
-        const init = normalizeHex(text.value) || '#000000';
-        applyColor(init);
+        syncFrom(text.value);
     })();
 </script>
-@endsection
+@endpush

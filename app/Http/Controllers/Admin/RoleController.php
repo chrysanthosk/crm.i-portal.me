@@ -14,104 +14,106 @@ class RoleController extends Controller
     public function index(Request $request)
     {
         $roles = Role::query()->orderBy('role_key')->get();
-        $permissions = Permission::query()->orderBy('permission_group')->orderBy('permission_key')->get();
 
-        $selectedRole = null;
-        $selectedRoleId = $request->query('role_id');
-
-        if ($selectedRoleId) {
-            $selectedRole = $roles->firstWhere('id', (int)$selectedRoleId);
+        // Decide which role is selected in the dropdown
+        $selectedRoleId = $request->integer('role_id');
+        if (!$selectedRoleId && $roles->count()) {
+            $selectedRoleId = (int)$roles->first()->id;
         }
 
-        if (!$selectedRole) {
-            $selectedRole = $roles->firstWhere('role_key', 'admin') ?? $roles->first();
+        $selectedRole = $selectedRoleId
+            ? $roles->firstWhere('id', $selectedRoleId) ?? Role::find($selectedRoleId)
+            : null;
+
+        // Load all permissions once (for the editor)
+        $permissions = Permission::query()
+            ->orderBy('permission_group')
+            ->orderBy('permission_key')
+            ->get();
+
+        // Group permissions for the blade (fixes your undefined variable issue)
+        $permissionsGrouped = $permissions->groupBy(function ($p) {
+            return $p->permission_group ?: 'General';
+        });
+
+        // Selected role permission IDs
+        $selectedRolePermissionIds = [];
+        if ($selectedRole) {
+            $selectedRolePermissionIds = $selectedRole->permissions()
+                ->pluck('permissions.id')
+                ->map(fn ($v) => (int)$v)
+                ->all();
         }
 
-        $selectedPermissionIds = $selectedRole
-            ? $selectedRole->permissions()->pluck('permissions.id')->all()
-            : [];
-
-        return view('admin.roles.index', compact('roles', 'permissions', 'selectedRole', 'selectedPermissionIds'));
+        return view('admin.roles.index', [
+            'roles' => $roles,
+            'selectedRole' => $selectedRole,
+            'selectedRoleId' => $selectedRoleId,
+            'permissionsGrouped' => $permissionsGrouped,
+            'selectedRolePermissionIds' => $selectedRolePermissionIds,
+        ]);
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
-            'role_key'  => ['required', 'string', 'max:50', 'regex:/^[a-z0-9_\-]+$/', 'unique:roles,role_key'],
-            'role_name' => ['required', 'string', 'max:50'],
-            'role_desc' => ['nullable', 'string', 'max:255'],
+            'role_key'  => ['required', 'string', 'max:64', 'regex:/^[a-z0-9_\-]+$/', 'unique:roles,role_key'],
+            'role_name' => ['required', 'string', 'max:120'],
         ]);
 
         $role = Role::create($data);
 
-        Audit::log('admin', 'role.create', 'role', $role->id, ['role_key' => $role->role_key]);
+        Audit::log('settings', 'role.create', 'role', $role->id, [
+            'role_key' => $role->role_key,
+            'role_name' => $role->role_name,
+        ]);
 
-        return redirect()->route('admin.roles.index')->with('status', 'Role created.');
+        return redirect()
+            ->route('settings.roles.index', ['role_id' => $role->id])
+            ->with('status', 'Role created.');
     }
 
     public function update(Request $request, Role $role)
     {
         $data = $request->validate([
-            'role_key'  => ['required', 'string', 'max:50', 'regex:/^[a-z0-9_\-]+$/', Rule::unique('roles', 'role_key')->ignore($role->id)],
-            'role_name' => ['required', 'string', 'max:50'],
-            'role_desc' => ['nullable', 'string', 'max:255'],
+            'role_key'  => [
+                'required',
+                'string',
+                'max:64',
+                'regex:/^[a-z0-9_\-]+$/',
+                Rule::unique('roles', 'role_key')->ignore($role->id),
+            ],
+            'role_name' => ['required', 'string', 'max:120'],
         ]);
-
-        // Protect admin key
-        if ($role->role_key === 'admin') {
-            $data['role_key'] = 'admin';
-        }
 
         $role->update($data);
 
-        Audit::log('admin', 'role.update', 'role', $role->id, ['role_key' => $role->role_key]);
-
-        return redirect()->route('admin.roles.index')->with('status', 'Role updated.');
-    }
-
-    public function destroy(Role $role)
-    {
-        if ($role->role_key === 'admin') {
-            return back()->withErrors(['role' => 'You cannot delete the admin role.']);
-        }
-
-        Audit::log('admin', 'role.delete', 'role', $role->id, ['role_key' => $role->role_key]);
-
-        $role->permissions()->detach();
-        $role->delete();
-
-        return redirect()->route('admin.roles.index')->with('status', 'Role deleted.');
-    }
-
-    /**
-     * Save permissions assigned to a role.
-     * Expects permission_ids[] (IDs from permissions table).
-     */
-    public function updatePermissions(Request $request, Role $role)
-    {
-        // Admin role: full access, do not edit
-        if ($role->role_key === 'admin') {
-            return redirect()
-                ->route('admin.roles.index', ['role_id' => $role->id])
-                ->with('status', 'Admin role permissions are fixed (full access).');
-        }
-
-        $data = $request->validate([
-            'permission_ids'   => ['nullable', 'array'],
-            'permission_ids.*' => ['integer', 'exists:permissions,id'],
-        ]);
-
-        $ids = array_values(array_unique($data['permission_ids'] ?? []));
-
-        $role->permissions()->sync($ids);
-
-        Audit::log('admin', 'role.permissions.update', 'role', $role->id, [
+        Audit::log('settings', 'role.update', 'role', $role->id, [
             'role_key' => $role->role_key,
-            'permission_ids' => $ids,
+            'role_name' => $role->role_name,
         ]);
 
         return redirect()
-            ->route('admin.roles.index', ['role_id' => $role->id])
-            ->with('status', 'Permissions updated.');
+            ->route('settings.roles.index', ['role_id' => $role->id])
+            ->with('status', 'Role updated.');
+    }
+
+    public function destroy(Request $request, Role $role)
+    {
+        // Optional: block deleting a core/admin role if you want
+        // if ($role->role_key === 'admin') {
+        //     return back()->withErrors(['role_delete' => 'You cannot delete the admin role.']);
+        // }
+
+        Audit::log('settings', 'role.delete', 'role', $role->id, [
+            'role_key' => $role->role_key,
+            'role_name' => $role->role_name,
+        ]);
+
+        $role->delete();
+
+        return redirect()
+            ->route('settings.roles.index')
+            ->with('status', 'Role deleted.');
     }
 }

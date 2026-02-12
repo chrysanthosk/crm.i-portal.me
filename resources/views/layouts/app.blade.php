@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>
-        @yield('title', ($systemHeaderName ?? config('app.name')))
-    </title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <title>@yield('title', ($systemHeaderName ?? config('app.name')))</title>
 
     {{-- AdminLTE 3 (Bootstrap 4) + FontAwesome --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
@@ -15,6 +15,8 @@
         body.dark-mode .text-muted { color: rgba(255,255,255,.75) !important; }
         body.dark-mode .card, body.dark-mode .main-footer { border-color: rgba(255,255,255,.08); }
     </style>
+
+    @stack('styles')
 </head>
 
 <body class="hold-transition sidebar-mini {{ ($uiTheme ?? 'light') === 'dark' ? 'dark-mode' : '' }}">
@@ -50,9 +52,7 @@
             <li class="nav-item dropdown">
                 <a class="nav-link" data-toggle="dropdown" href="#">
                     <i class="far fa-user"></i>
-                    <span class="ml-1">
-            {{ auth()->user()->name }}
-          </span>
+                    <span class="ml-1">{{ auth()->user()->name }}</span>
                 </a>
 
                 <div class="dropdown-menu dropdown-menu-right">
@@ -77,9 +77,7 @@
     {{-- Sidebar --}}
     <aside class="main-sidebar sidebar-dark-primary elevation-4">
         <a href="{{ route('dashboard') }}" class="brand-link">
-      <span class="brand-text font-weight-light">
-        {{ $systemHeaderName ?? config('app.name') }}
-      </span>
+            <span class="brand-text font-weight-light">{{ $systemHeaderName ?? config('app.name') }}</span>
         </a>
 
         <div class="sidebar">
@@ -94,9 +92,30 @@
                         </a>
                     </li>
 
-                    {{-- CRM: Clients (NOT ADMIN) --}}
-                    @if(auth()->user()->role === 'admin' || auth()->user()->hasPermission('client.manage'))
-                    <li class="nav-header">CRM</li>
+                    {{-- Appointments --}}
+                    @if(auth()->user()->hasPermission('appointment.manage') || auth()->user()->role === 'admin')
+                    <li class="nav-item">
+                        <a href="{{ route('appointments.index') }}"
+                           class="nav-link {{ request()->routeIs('appointments.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-calendar-check"></i>
+                            <p>Appointments</p>
+                        </a>
+                    </li>
+                    @endif
+
+                    {{-- Services --}}
+                    @if(auth()->user()->hasPermission('services.manage') || auth()->user()->role === 'admin')
+                    <li class="nav-item">
+                        <a href="{{ route('services.index') }}"
+                           class="nav-link {{ request()->routeIs('services.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-concierge-bell"></i>
+                            <p>Services</p>
+                        </a>
+                    </li>
+                    @endif
+
+                    {{-- Clients --}}
+                    @if(auth()->user()->hasPermission('client.manage') || auth()->user()->role === 'admin')
                     <li class="nav-item">
                         <a href="{{ route('clients.index') }}"
                            class="nav-link {{ request()->routeIs('clients.*') ? 'active' : '' }}">
@@ -106,77 +125,81 @@
                     </li>
                     @endif
 
-                    {{-- ADMIN --}}
+                    {{-- Staff --}}
+                    @if(auth()->user()->hasPermission('staff.manage') || auth()->user()->role === 'admin')
+                    <li class="nav-item">
+                        <a href="{{ route('staff.index') }}"
+                           class="nav-link {{ request()->routeIs('staff.*') ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-user-nurse"></i>
+                            <p>Staff</p>
+                        </a>
+                    </li>
+                    @endif
+
+                    {{-- Settings --}}
                     @if(auth()->user()->role === 'admin' || auth()->user()->hasPermission('admin.access'))
-                    <li class="nav-header">ADMIN</li>
+                    <li class="nav-header">SETTINGS</li>
 
-                    @php
-                    $settingsOpen = request()->routeIs('admin.settings.*')
-                    || request()->routeIs('admin.users.*')
-                    || request()->routeIs('admin.roles.*')
-                    || request()->routeIs('admin.staff.*');
-                    @endphp
-
-                    <li class="nav-item has-treeview {{ $settingsOpen ? 'menu-open' : '' }}">
-                        <a href="#" class="nav-link {{ $settingsOpen ? 'active' : '' }}">
+                    <li class="nav-item has-treeview {{ request()->routeIs('settings.*') ? 'menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}">
                             <i class="nav-icon fas fa-cogs"></i>
                             <p>Settings<i class="right fas fa-angle-left"></i></p>
                         </a>
 
                         <ul class="nav nav-treeview">
 
-                            {{-- Users --}}
                             <li class="nav-item">
-                                <a href="{{ route('admin.users.index') }}"
-                                   class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
+                                <a href="{{ route('settings.users.index') }}"
+                                   class="nav-link {{ request()->routeIs('settings.users.*') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i><p>Users</p>
                                 </a>
                             </li>
 
-                            {{-- Roles --}}
                             <li class="nav-item">
-                                <a href="{{ route('admin.roles.index') }}"
-                                   class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
+                                <a href="{{ route('settings.roles.index') }}"
+                                   class="nav-link {{ request()->routeIs('settings.roles.*') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i><p>Roles</p>
                                 </a>
                             </li>
 
-                            {{-- Staff --}}
+                            {{-- NEW: lookups for services --}}
                             <li class="nav-item">
-                                <a href="{{ route('admin.staff.index') }}"
-                                   class="nav-link {{ request()->routeIs('admin.staff.*') ? 'active' : '' }}">
-                                    <i class="far fa-circle nav-icon"></i><p>Staff</p>
+                                <a href="{{ route('settings.service-categories.index') }}"
+                                   class="nav-link {{ request()->routeIs('settings.service-categories.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i><p>Service Categories</p>
                                 </a>
                             </li>
 
-                            {{-- SMTP --}}
                             <li class="nav-item">
-                                <a href="{{ route('admin.settings.smtp.edit') }}"
-                                   class="nav-link {{ request()->routeIs('admin.settings.smtp.*') ? 'active' : '' }}">
+                                <a href="{{ route('settings.vat-types.index') }}"
+                                   class="nav-link {{ request()->routeIs('settings.vat-types.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i><p>VAT Types</p>
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a href="{{ route('settings.smtp.edit') }}"
+                                   class="nav-link {{ request()->routeIs('settings.smtp.*') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i><p>SMTP</p>
                                 </a>
                             </li>
 
-                            {{-- Configuration --}}
                             <li class="nav-item">
-                                <a href="{{ route('admin.settings.config.edit') }}"
-                                   class="nav-link {{ request()->routeIs('admin.settings.config.*') ? 'active' : '' }}">
+                                <a href="{{ route('settings.config.edit') }}"
+                                   class="nav-link {{ request()->routeIs('settings.config.*') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i><p>Configuration</p>
+                                </a>
+                            </li>
+
+                            <li class="nav-item">
+                                <a href="{{ route('settings.audit.index') }}"
+                                   class="nav-link {{ request()->routeIs('settings.audit.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i><p>Audit Log</p>
                                 </a>
                             </li>
 
                         </ul>
                     </li>
-
-                    {{-- Audit Log --}}
-                    <li class="nav-item">
-                        <a href="{{ route('admin.audit.index') }}"
-                           class="nav-link {{ request()->routeIs('admin.audit.*') ? 'active' : '' }}">
-                            <i class="nav-icon fas fa-clipboard-list"></i>
-                            <p>Audit Log</p>
-                        </a>
-                    </li>
-
                     @endif
 
                 </ul>
@@ -196,12 +219,8 @@
 
     {{-- Footer --}}
     <footer class="main-footer">
-        <div class="float-right d-none d-sm-inline">
-            {{ now()->format('Y') }}
-        </div>
-        <strong>
-            &copy; {{ now()->format('Y') }} {{ $systemFooterName ?? config('app.name') }}
-        </strong>
+        <div class="float-right d-none d-sm-inline">{{ now()->format('Y') }}</div>
+        <strong>&copy; {{ now()->format('Y') }} {{ $systemFooterName ?? config('app.name') }}</strong>
     </footer>
 
 </div>
@@ -209,5 +228,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+
+@stack('scripts')
 </body>
 </html>

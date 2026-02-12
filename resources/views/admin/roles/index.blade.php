@@ -1,296 +1,345 @@
 @extends('layouts.app')
 
-@section('title', 'Admin - Roles')
+@section('title', 'Roles')
 
 @section('content')
 <div class="container-fluid">
 
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <h1 class="h3 mb-0">Roles</h1>
-  </div>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h1 class="h3 mb-0">Roles</h1>
+        <a href="{{ route('settings.roles.index', ['role_id' => $selectedRoleId]) }}"
+           class="btn btn-outline-secondary">
+            <i class="fas fa-sync-alt mr-1"></i> Refresh
+        </a>
+    </div>
 
-  @if ($errors->any())
+    {{-- Flash --}}
+    @if(session('status'))
+    <div class="alert alert-success">{{ session('status') }}</div>
+    @endif
+
+    @if($errors->any())
     <div class="alert alert-danger">
-      <strong>Please fix the errors below.</strong>
-      <ul class="mb-0 mt-2">
-        @foreach ($errors->all() as $e)
-          <li>{{ $e }}</li>
-        @endforeach
-      </ul>
+        Please fix the errors below.
     </div>
-  @endif
+    @endif
 
-  {{-- Role Management --}}
-  <div class="card mb-4">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <strong>Role Management</strong>
+    <div class="row">
 
-      <button class="btn btn-sm btn-primary" data-toggle="collapse" data-target="#addRoleCollapse" aria-expanded="false">
-        <i class="fas fa-plus mr-1"></i> Add Role
-      </button>
-    </div>
+        {{-- LEFT: Roles table --}}
+        <div class="col-lg-5">
 
-    <div class="collapse" id="addRoleCollapse">
-      <div class="card-body border-bottom">
-        <form method="POST" action="{{ route('admin.roles.store') }}">
-          @csrf
-
-          <div class="row">
-            <div class="col-md-4 mb-3">
-              <label class="form-label">Role Key</label>
-              <input class="form-control" name="role_key" value="{{ old('role_key') }}" required>
-              <small class="text-muted">Lowercase letters/numbers/underscore/dash. Example: vat_manage</small>
-              @error('role_key') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-4 mb-3">
-              <label class="form-label">Role Name</label>
-              <input class="form-control" name="role_name" value="{{ old('role_name') }}" required>
-              @error('role_name') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-
-            <div class="col-md-4 mb-3">
-              <label class="form-label">Role Description</label>
-              <input class="form-control" name="role_desc" value="{{ old('role_desc') }}">
-              @error('role_desc') <div class="text-danger small">{{ $message }}</div> @enderror
-            </div>
-          </div>
-
-          <button class="btn btn-primary" type="submit">
-            <i class="fas fa-save mr-1"></i> Save Role
-          </button>
-        </form>
-      </div>
-    </div>
-
-    <div class="card-body p-0">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr>
-              <th style="width: 80px;">ID</th>
-              <th style="width: 220px;">Role Key</th>
-              <th>Role Name</th>
-              <th>Description</th>
-              <th style="width: 220px;" class="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @forelse($roles as $role)
-              <tr>
-                <td>{{ $role->id }}</td>
-                <td><code>{{ $role->role_key }}</code></td>
-                <td><strong>{{ $role->role_name }}</strong></td>
-                <td>{{ $role->role_desc ?? '-' }}</td>
-                <td class="text-right">
-
-                  {{-- Edit -> modal --}}
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    data-toggle="modal"
-                    data-target="#editRoleModal"
-                    data-role-id="{{ $role->id }}"
-                    data-role-key="{{ $role->role_key }}"
-                    data-role-name="{{ $role->role_name }}"
-                    data-role-desc="{{ $role->role_desc }}"
-                  >
-                    <i class="fas fa-edit mr-1"></i> Edit
-                  </button>
-
-                  {{-- Delete --}}
-                  <form method="POST"
-                        action="{{ route('admin.roles.destroy', $role->id) }}"
-                        class="d-inline"
-                        onsubmit="return confirm('Delete role: {{ $role->role_key }} ?')">
-                    @csrf
-                    @method('DELETE')
-                    <button class="btn btn-sm btn-outline-danger" {{ $role->role_key === 'admin' ? 'disabled' : '' }}>
-                      <i class="fas fa-trash mr-1"></i> Delete
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <strong>Role List</strong>
+                    <button class="btn btn-sm btn-primary" type="button" data-toggle="collapse" data-target="#addRoleCollapse">
+                        <i class="fas fa-plus mr-1"></i> Add Role
                     </button>
-                  </form>
+                </div>
 
-                </td>
-              </tr>
-            @empty
-              <tr>
-                <td colspan="5" class="text-center text-muted py-4">No roles found.</td>
-              </tr>
-            @endforelse
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
+                <div class="collapse" id="addRoleCollapse">
+                    <div class="card-body border-bottom">
+                        <form method="POST" action="{{ route('settings.roles.store') }}">
+                            @csrf
 
-  {{-- Assign Permissions --}}
-  <div class="card">
-    <div class="card-header">
-      <strong>Assign Permissions to Role</strong>
-    </div>
-    <div class="card-body">
+                            <div class="form-group">
+                                <label class="form-label">Role Name</label>
+                                <input class="form-control" name="role_name" value="{{ old('role_name') }}" required>
+                                @error('role_name') <div class="text-danger small">{{ $message }}</div> @enderror
+                            </div>
 
-      {{-- Select role (GET role_id to reload) --}}
-      <form method="GET" action="{{ route('admin.roles.index') }}" class="mb-3">
-        <div class="row">
-          <div class="col-md-4">
-            <label class="form-label">Select Role</label>
-            <select class="form-control" name="role_id" onchange="this.form.submit()">
-              @foreach($roles as $r)
-                <option value="{{ $r->id }}" {{ $selectedRole && (int)$selectedRole->id === (int)$r->id ? 'selected' : '' }}>
-                  {{ $r->role_name }} ({{ $r->role_key }})
-                </option>
-              @endforeach
-            </select>
-          </div>
+                            <div class="form-group">
+                                <label class="form-label">Role Key</label>
+                                <input class="form-control" name="role_key" value="{{ old('role_key') }}" required>
+                                <small class="text-muted">Lowercase letters/numbers/underscore/dash. Example: appointment_manage</small>
+                                @error('role_key') <div class="text-danger small">{{ $message }}</div> @enderror
+                            </div>
+
+                            <button class="btn btn-primary">
+                                <i class="fas fa-save mr-1"></i> Create Role
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0 align-middle">
+                            <thead>
+                            <tr>
+                                <th style="width:70px;">#</th>
+                                <th>Name</th>
+                                <th>Key</th>
+                                <th style="width:160px;" class="text-right">Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            @forelse($roles as $r)
+                            <tr class="{{ (int)$selectedRoleId === (int)$r->id ? 'table-active' : '' }}">
+                                <td>{{ $r->id }}</td>
+                                <td class="font-weight-bold">{{ $r->role_name }}</td>
+                                <td class="text-monospace">{{ $r->role_key }}</td>
+                                <td class="text-right">
+
+                                    {{-- Select for permissions editor --}}
+                                    <a href="{{ route('settings.roles.index', ['role_id' => $r->id]) }}"
+                                       class="btn btn-sm btn-outline-secondary"
+                                       title="Edit permissions">
+                                        <i class="fas fa-sliders-h"></i>
+                                    </a>
+
+                                    {{-- Edit role --}}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            data-toggle="modal"
+                                            data-target="#editRoleModal-{{ $r->id }}"
+                                            title="Edit role">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+
+                                    {{-- Delete role --}}
+                                    <form method="POST"
+                                          action="{{ route('settings.roles.destroy', $r) }}"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Delete this role?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete role">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+
+                                    {{-- Edit Modal --}}
+                                    <div class="modal fade" id="editRoleModal-{{ $r->id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Edit Role</h5>
+                                                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                                                </div>
+
+                                                <form method="POST" action="{{ route('settings.roles.update', $r) }}">
+                                                    @csrf
+                                                    @method('PUT')
+
+                                                    <div class="modal-body">
+
+                                                        <div class="form-group">
+                                                            <label class="form-label">Role Name</label>
+                                                            <input class="form-control" name="role_name"
+                                                                   value="{{ old('role_name', $r->role_name) }}" required>
+                                                        </div>
+
+                                                        <div class="form-group">
+                                                            <label class="form-label">Role Key</label>
+                                                            <input class="form-control" name="role_key"
+                                                                   value="{{ old('role_key', $r->role_key) }}" required>
+                                                            <small class="text-muted">Lowercase letters/numbers/underscore/dash.</small>
+                                                        </div>
+
+                                                    </div>
+
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                                                        <button class="btn btn-primary">
+                                                            <i class="fas fa-save mr-1"></i> Save
+                                                        </button>
+                                                    </div>
+                                                </form>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="4" class="text-center text-muted p-4">No roles found.</td>
+                            </tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
-      </form>
 
-      @if($selectedRole)
-        <form method="POST" action="{{ route('admin.roles.permissions.sync', $selectedRole->id) }}">
-          @csrf
+        {{-- RIGHT: Permissions editor --}}
+        <div class="col-lg-7">
 
-          <div class="mb-2">
-            <span class="badge badge-secondary">Selected:</span>
-            <strong class="ml-1">{{ $selectedRole->role_name }}</strong>
-            <span class="text-muted">({{ $selectedRole->role_key }})</span>
-          </div>
+            <div class="card">
+                <div class="card-header">
+                    <strong>Permissions</strong>
+                </div>
 
-          <div class="border rounded p-3" style="max-height: 360px; overflow:auto;">
-            @php($assignedIds = $selectedPermissionIds ?? [])
+                <div class="card-body">
 
-            @forelse($permissions as $perm)
-              <div class="custom-control custom-checkbox">
-                <input
-                  type="checkbox"
-                  class="custom-control-input"
-                  id="perm_{{ $perm->id }}"
-                  name="permission_ids[]"
-                  value="{{ $perm->id }}"
-                  {{ in_array($perm->id, $assignedIds, true) ? 'checked' : '' }}
-                  {{ $selectedRole->role_key === 'admin' ? 'disabled' : '' }}
-                >
-                <label class="custom-control-label" for="perm_{{ $perm->id }}">
-                  <strong>{{ $perm->permission_key }}</strong>
-                  @if(!empty($perm->permission_group))
-                    <span class="text-muted"> — {{ $perm->permission_group }}</span>
-                  @endif
-                </label>
-              </div>
-            @empty
-              <div class="text-muted">No permissions exist yet.</div>
-            @endforelse
-          </div>
+                    @if(!$selectedRole)
+                    <div class="alert alert-warning mb-0">
+                        No role selected.
+                    </div>
+                    @else
 
-          <div class="mt-3">
-            <button class="btn btn-primary" type="submit" {{ $selectedRole->role_key === 'admin' ? 'disabled' : '' }}>
-              <i class="fas fa-save mr-1"></i> Save Permissions
-            </button>
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <div class="text-muted small">Selected Role</div>
+                            <div class="h5 mb-0">{{ $selectedRole->role_name }}</div>
+                            <div class="text-monospace text-muted small">{{ $selectedRole->role_key }}</div>
+                        </div>
 
-            @if($selectedRole->role_key === 'admin')
-              <span class="text-muted ml-2">Admin role always has full access; editing permissions is disabled.</span>
-            @endif
-          </div>
-        </form>
-      @else
-        <div class="text-muted">No role selected.</div>
-      @endif
+                        <div style="min-width: 280px;">
+                            <label class="text-muted small mb-1">Switch role</label>
+                            <select class="form-control"
+                                    onchange="window.location='{{ route('settings.roles.index') }}?role_id='+this.value;">
+                                @foreach($roles as $r)
+                                <option value="{{ $r->id }}" @selected((int)$selectedRoleId === (int)$r->id)>
+                                    {{ $r->role_name }} ({{ $r->role_key }})
+                                </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
 
+                    <div class="form-group">
+                        <input type="text" id="permSearch" class="form-control"
+                               placeholder="Search permissions… (type to filter)">
+                    </div>
+
+                    <div class="d-flex align-items-center mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary mr-2" id="btnSelectAll">
+                            Select all
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="btnClearAll">
+                            Clear all
+                        </button>
+                    </div>
+
+                    <form method="POST" action="{{ route('settings.roles.permissions.sync', $selectedRole) }}">
+                        @csrf
+
+                        <div id="permissionsWrap">
+                            @foreach($permissionsGrouped as $group => $perms)
+                            @php
+                            $gid = 'grp_' . \Illuminate\Support\Str::slug($group);
+                            @endphp
+
+                            <div class="border rounded p-3 mb-3 permission-group" data-group="{{ strtolower($group) }}">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div class="font-weight-bold">{{ $group }}</div>
+
+                                    <div>
+                                        <button type="button"
+                                                class="btn btn-xs btn-outline-secondary btn-group-select"
+                                                data-target="{{ $gid }}">
+                                            Select group
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-xs btn-outline-secondary btn-group-clear"
+                                                data-target="{{ $gid }}">
+                                            Clear group
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="row" id="{{ $gid }}">
+                                    @foreach($perms as $p)
+                                    @php
+                                    $checked = in_array((int)$p->id, $selectedRolePermissionIds, true);
+                                    $text = strtolower(($p->permission_key ?? '') . ' ' . ($p->permission_name ?? '') . ' ' . ($p->permission_group ?? ''));
+                                    @endphp
+                                    <div class="col-md-6 mb-2 permission-item" data-text="{{ $text }}">
+                                        <div class="form-check">
+                                            <input class="form-check-input perm-checkbox"
+                                                   type="checkbox"
+                                                   name="permissions[]"
+                                                   value="{{ $p->id }}"
+                                                   id="perm-{{ $p->id }}"
+                                                   @checked($checked)>
+                                            <label class="form-check-label" for="perm-{{ $p->id }}">
+                                                <span class="font-weight-bold">{{ $p->permission_name ?? $p->permission_key }}</span>
+                                                <div class="text-muted small text-monospace">{{ $p->permission_key }}</div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+
+                        <button class="btn btn-primary">
+                            <i class="fas fa-save mr-1"></i> Save Permissions
+                        </button>
+                    </form>
+                    @endif
+
+                </div>
+            </div>
+
+        </div>
     </div>
-  </div>
 
 </div>
 
-{{-- Edit Role Modal --}}
-<div class="modal fade" id="editRoleModal" tabindex="-1" role="dialog" aria-labelledby="editRoleModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <h5 class="modal-title" id="editRoleModalLabel">Edit Role</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-
-      <form method="POST" id="editRoleForm" action="#">
-        @csrf
-        @method('PUT')
-
-        <div class="modal-body">
-
-          <div class="form-group">
-            <label>Role Key</label>
-            <input type="text" class="form-control" name="role_key" id="edit_role_key" required>
-            <small class="text-muted">Admin role key cannot be changed.</small>
-          </div>
-
-          <div class="form-group">
-            <label>Role Name</label>
-            <input type="text" class="form-control" name="role_name" id="edit_role_name" required>
-          </div>
-
-          <div class="form-group">
-            <label>Role Description</label>
-            <input type="text" class="form-control" name="role_desc" id="edit_role_desc">
-          </div>
-
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary">
-            <i class="fas fa-save mr-1"></i> Save Changes
-          </button>
-        </div>
-      </form>
-
-    </div>
-  </div>
-</div>
-
-{{-- Modal JS --}}
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-  $('#editRoleModal').on('show.bs.modal', function (event) {
-    var button = $(event.relatedTarget);
+    document.addEventListener('DOMContentLoaded', function () {
+        const search = document.getElementById('permSearch');
+        const wrap = document.getElementById('permissionsWrap');
 
-    var roleId   = button.data('role-id');
-    var roleKey  = button.data('role-key') || '';
-    var roleName = button.data('role-name') || '';
-    var roleDesc = button.data('role-desc') || '';
+        function setAll(checked) {
+            document.querySelectorAll('.perm-checkbox').forEach(cb => cb.checked = checked);
+        }
 
-    $('#edit_role_key').val(roleKey);
-    $('#edit_role_name').val(roleName);
-    $('#edit_role_desc').val(roleDesc);
+        const btnSelectAll = document.getElementById('btnSelectAll');
+        const btnClearAll = document.getElementById('btnClearAll');
 
-    // Protect admin role key
-    if (roleKey === 'admin') {
-      $('#edit_role_key').prop('disabled', true);
-    } else {
-      $('#edit_role_key').prop('disabled', false);
-      // Remove hidden field if previously added
-      $('#role_key_hidden_admin').remove();
-    }
+        if (btnSelectAll) btnSelectAll.addEventListener('click', () => setAll(true));
+        if (btnClearAll) btnClearAll.addEventListener('click', () => setAll(false));
 
-    var actionTemplate = @json(route('admin.roles.update', ['role' => '__ID__']));
-    $('#editRoleForm').attr('action', actionTemplate.replace('__ID__', roleId));
-  });
+        // Group select/clear
+        document.querySelectorAll('.btn-group-select').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = document.getElementById(btn.dataset.target);
+                if (!target) return;
+                target.querySelectorAll('.perm-checkbox').forEach(cb => cb.checked = true);
+            });
+        });
 
-  // If role_key is disabled, it won't submit. Add hidden input on submit.
-  $('#editRoleForm').on('submit', function () {
-    if ($('#edit_role_key').prop('disabled')) {
-      var val = $('#edit_role_key').val();
-      if (!document.getElementById('role_key_hidden_admin')) {
-        var input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'role_key';
-        input.value = val;
-        input.id = 'role_key_hidden_admin';
-        this.appendChild(input);
-      }
-    }
-  });
-});
+        document.querySelectorAll('.btn-group-clear').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = document.getElementById(btn.dataset.target);
+                if (!target) return;
+                target.querySelectorAll('.perm-checkbox').forEach(cb => cb.checked = false);
+            });
+        });
+
+        // Search filter
+        if (search && wrap) {
+            search.addEventListener('input', function () {
+                const q = (this.value || '').trim().toLowerCase();
+                const items = wrap.querySelectorAll('.permission-item');
+                const groups = wrap.querySelectorAll('.permission-group');
+
+                if (!q) {
+                    items.forEach(i => i.style.display = '');
+                    groups.forEach(g => g.style.display = '');
+                    return;
+                }
+
+                items.forEach(i => {
+                    const t = i.dataset.text || '';
+                    i.style.display = t.includes(q) ? '' : 'none';
+                });
+
+                // hide whole groups that have no visible items
+                groups.forEach(g => {
+                    const visible = g.querySelectorAll('.permission-item:not([style*="display: none"])').length;
+                    g.style.display = visible ? '' : 'none';
+                });
+            });
+        }
+    });
 </script>
 @endsection

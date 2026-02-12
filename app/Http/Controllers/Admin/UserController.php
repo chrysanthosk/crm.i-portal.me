@@ -29,31 +29,31 @@ class UserController extends Controller
         $roleKeys = Role::query()->pluck('role_key')->all();
 
         $data = $request->validate([
-            'first_name' => ['nullable', 'string', 'max:255'],
-            'last_name'  => ['nullable', 'string', 'max:255'],
-            'email'      => ['required', 'email', 'max:255', 'unique:users,email'],
-            'role'       => ['required', 'string', 'max:20', Rule::in($roleKeys)],
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name'  => ['nullable', 'string', 'max:100'],
+            'email'      => ['required', 'email', 'max:190', 'unique:users,email'],
+            'role'       => ['required', 'string', Rule::in($roleKeys)],
             'password'   => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $name = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
-        if ($name === '') {
-            $name = $data['email'];
-        }
+        $fullName = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
 
         $user = User::create([
             'first_name' => $data['first_name'] ?? null,
             'last_name'  => $data['last_name'] ?? null,
-            'name'       => $name,
+            'name'       => $fullName !== '' ? $fullName : ($data['email'] ?? 'User'),
             'email'      => $data['email'],
             'role'       => $data['role'],
             'password'   => Hash::make($data['password']),
             'theme'      => 'light',
         ]);
 
-        Audit::log('admin', 'user.create', 'user', $user->id, ['email' => $user->email, 'role' => $user->role]);
+        Audit::log('settings', 'user.create', 'user', $user->id, [
+            'email' => $user->email,
+            'role'  => $user->role,
+        ]);
 
-        return redirect()->route('admin.users.index')->with('status', 'User created.');
+        return redirect()->route('settings.users.index')->with('status', 'User created.');
     }
 
     public function edit(User $user)
@@ -67,45 +67,51 @@ class UserController extends Controller
         $roleKeys = Role::query()->pluck('role_key')->all();
 
         $data = $request->validate([
-            'first_name' => ['nullable', 'string', 'max:255'],
-            'last_name'  => ['nullable', 'string', 'max:255'],
-            'email'      => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'role'       => ['required', 'string', 'max:20', Rule::in($roleKeys)],
+            'first_name' => ['nullable', 'string', 'max:100'],
+            'last_name'  => ['nullable', 'string', 'max:100'],
+            'email'      => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
+            'role'       => ['required', 'string', Rule::in($roleKeys)],
             'password'   => ['nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $name = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
-        if ($name === '') {
-            $name = $data['email'];
-        }
+        $fullName = trim(($data['first_name'] ?? '') . ' ' . ($data['last_name'] ?? ''));
 
-        $user->first_name = $data['first_name'] ?? null;
-        $user->last_name  = $data['last_name'] ?? null;
-        $user->name       = $name;
-        $user->email      = $data['email'];
-        $user->role       = $data['role'];
+        $update = [
+            'first_name' => $data['first_name'] ?? null,
+            'last_name'  => $data['last_name'] ?? null,
+            'name'       => $fullName !== '' ? $fullName : ($data['email'] ?? $user->name),
+            'email'      => $data['email'],
+            'role'       => $data['role'],
+        ];
 
         if (!empty($data['password'])) {
-            $user->password = Hash::make($data['password']);
+            $update['password'] = Hash::make($data['password']);
         }
 
-        $user->save();
+        $user->update($update);
 
-        Audit::log('admin', 'user.update', 'user', $user->id, ['email' => $user->email, 'role' => $user->role]);
+        Audit::log('settings', 'user.update', 'user', $user->id, [
+            'email' => $user->email,
+            'role'  => $user->role,
+        ]);
 
-        return redirect()->route('admin.users.index')->with('status', 'User updated.');
+        return redirect()->route('settings.users.index')->with('status', 'User updated.');
     }
 
     public function destroy(Request $request, User $user)
     {
-        if (auth()->id() === $user->id) {
-            return back()->withErrors(['delete_user' => 'You cannot delete your own account.']);
-        }
+        // Optional: prevent deleting yourself
+        // if ((int)auth()->id() === (int)$user->id) {
+        //     return back()->withErrors(['delete_user' => 'You cannot delete your own account.']);
+        // }
 
-        Audit::log('admin', 'user.delete', 'user', $user->id, ['email' => $user->email]);
+        Audit::log('settings', 'user.delete', 'user', $user->id, [
+            'email' => $user->email,
+            'role'  => $user->role,
+        ]);
 
         $user->delete();
 
-        return redirect()->route('admin.users.index')->with('status', 'User deleted.');
+        return redirect()->route('settings.users.index')->with('status', 'User deleted.');
     }
 }
