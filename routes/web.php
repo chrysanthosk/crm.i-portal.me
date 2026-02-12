@@ -22,10 +22,10 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-// Theme toggle (works for guests too; stores theme in session, and for logged-in users in DB)
+// Theme toggle (guest + auth). Theme is read by EnsureTheme middleware.
 Route::post('/theme/toggle', [ThemeController::class, 'toggle'])->name('theme.toggle');
 
-Route::middleware(['auth', 'verified', 'theme'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::view('/dashboard', 'dashboard')->name('dashboard');
 
@@ -58,7 +58,7 @@ Route::middleware(['auth', 'verified', 'theme'])->group(function () {
         Route::post('roles/{role}/permissions', [RolePermissionController::class, 'sync'])
             ->name('roles.permissions.sync')->middleware('permission:role.manage');
 
-        // Settings (admin-only)
+        // Settings
         Route::get('settings/smtp', [SmtpController::class, 'edit'])->name('settings.smtp.edit')->middleware('permission:settings.smtp');
         Route::put('settings/smtp', [SmtpController::class, 'update'])->name('settings.smtp.update')->middleware('permission:settings.smtp');
         Route::post('settings/smtp/test', [SmtpController::class, 'test'])->name('settings.smtp.test')->middleware('permission:settings.smtp');
@@ -67,7 +67,7 @@ Route::middleware(['auth', 'verified', 'theme'])->group(function () {
         Route::put('settings/configuration/system', [ConfigurationController::class, 'updateSystem'])
             ->name('settings.config.system.update')->middleware('permission:settings.config');
 
-        // Audit log (admin-only)
+        // Audit log
         Route::get('audit', [AuditController::class, 'index'])->name('audit.index')->middleware('permission:audit.view');
     });
 });
