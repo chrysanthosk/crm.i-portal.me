@@ -5,12 +5,16 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ThemeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TwoFactorController;
+
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\Settings\SmtpController;
 use App\Http\Controllers\Admin\Settings\ConfigurationController;
+
+use App\Http\Controllers\Admin\ClientController;
+use App\Http\Controllers\Admin\StaffController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,7 +26,7 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-// Theme toggle (guest + auth). Theme is read by EnsureTheme middleware.
+// Theme toggle (guest + auth). Theme is read by EnsureTheme middleware globally (bootstrap/app.php)
 Route::post('/theme/toggle', [ThemeController::class, 'toggle'])->name('theme.toggle');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -44,11 +48,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/profile/2fa/recovery/regenerate', [TwoFactorController::class, 'regenerateRecoveryCodes'])
         ->name('profile.2fa.recovery.regenerate');
 
-    // Admin area
+    /**
+     * CLIENTS (NOT ADMIN)
+     * Permissions: client.manage
+     * Routes: clients.*
+     */
+    Route::middleware(['permission:client.manage'])->group(function () {
+        Route::resource('clients', ClientController::class)->except(['show']);
+    });
+
+    /**
+     * ADMIN (Settings)
+     * Staff is under Settings here.
+     */
     Route::prefix('admin')->name('admin.')->middleware(['permission:admin.access'])->group(function () {
 
-        // Users
-        Route::resource('users', UserController::class)->except(['show'])->middleware('permission:user.manage');
+        // Users (under Settings UI, but routes live here)
+        Route::resource('users', UserController::class)->except(['show'])
+            ->middleware('permission:user.manage');
 
         // Roles + permissions
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index')->middleware('permission:role.manage');
@@ -67,9 +84,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('settings/configuration/system', [ConfigurationController::class, 'updateSystem'])
             ->name('settings.config.system.update')->middleware('permission:settings.config');
 
+        // Staff (ADMIN only, shown under Settings in sidebar)
+        Route::resource('staff', StaffController::class)->except(['show'])
+            ->parameters(['staff' => 'staffMember'])
+            ->middleware('permission:staff.manage');
+
         // Audit log
         Route::get('audit', [AuditController::class, 'index'])->name('audit.index')->middleware('permission:audit.view');
     });
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
