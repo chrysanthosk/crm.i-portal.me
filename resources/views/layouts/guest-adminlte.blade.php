@@ -14,38 +14,44 @@
     body.dark-mode .text-muted { color: rgba(255,255,255,.75) !important; }
     .login-logo a { color: inherit; }
 
-    /* FORCE the card header to be a flex row (AdminLTE/Bootstrap can override otherwise) */
-    .card-header.guest-card-header {
-      display: flex !important;
-      align-items: center !important;
-      justify-content: space-between !important;
-      padding: .5rem .75rem !important;
+    /* Card + form styling for dark mode */
+    body.dark-mode .card,
+    body.dark-mode .card-body {
+      background-color: #343a40 !important;
+      color: #f8f9fa !important;
+    }
+    body.dark-mode .form-control {
+      background-color: #2b3035 !important;
+      color: #f8f9fa !important;
+      border-color: rgba(255,255,255,.15) !important;
+    }
+    body.dark-mode .input-group-text {
+      background-color: #2b3035 !important;
+      color: #f8f9fa !important;
+      border-color: rgba(255,255,255,.15) !important;
     }
 
-    .guest-card-header .header-left {
+    /* Small top utility row (keeps toggle to the right always) */
+    .guest-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      margin-bottom: .5rem;
+    }
+    .guest-topbar .left {
       min-height: 1rem;
       line-height: 1.1;
     }
-
-    /* Optional: make card header look better in dark mode */
-    body.dark-mode .card-header.guest-card-header {
-      background-color: #343a40 !important;
-      border-bottom-color: rgba(255,255,255,.1) !important;
-    }
-
-    body.dark-mode .card {
-      background-color: #343a40;
-      color: #f8f9fa;
-    }
-
-    body.dark-mode .card-body {
-      background-color: #343a40;
+    .guest-topbar .right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
     }
   </style>
 </head>
 
 <body class="hold-transition login-page {{ ($uiTheme ?? 'light') === 'dark' ? 'dark-mode' : '' }}">
-
 <div class="login-box">
 
   <div class="login-logo">
@@ -54,14 +60,14 @@
     </a>
   </div>
 
-  <div class="card">
-    <div class="card-header guest-card-header">
-      <div class="header-left text-muted">
-        @yield('header', '')
-      </div>
+  {{-- Top utility row (header text left, theme toggle right) --}}
+  <div class="guest-topbar">
+    <div class="left text-muted">
+      @yield('header', '')
+    </div>
 
-      {{-- Theme toggle (works for guests too via cookie) --}}
-      <form method="POST" action="{{ route('theme.toggle') }}" class="m-0 ml-auto">
+    <div class="right">
+      <form method="POST" action="{{ route('theme.toggle') }}" class="m-0">
         @csrf
         <button type="submit"
                 class="btn btn-sm {{ ($uiTheme ?? 'light') === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary' }}"
@@ -70,7 +76,9 @@
         </button>
       </form>
     </div>
+  </div>
 
+  <div class="card">
     <div class="card-body">
       @yield('content')
     </div>

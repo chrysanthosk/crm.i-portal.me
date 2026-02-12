@@ -6,8 +6,8 @@ use Illuminate\Foundation\Configuration\Middleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        web: __DIR__.'/../routes/web.php',
-        commands: __DIR__.'/../routes/console.php',
+        web: __DIR__ . '/../routes/web.php',
+        commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
@@ -21,11 +21,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
         ]);
 
-        // If you want theme to run for *all* web routes automatically,
-        // uncomment this (then remove 'theme' from route groups if you want):
-        // $middleware->web(append: [
-        //     \App\Http\Middleware\EnsureTheme::class,
-        // ]);
+        /**
+         * Run theme middleware for ALL web routes (including guest pages like /login),
+         * so theme and system header/footer are always available.
+         */
+        $middleware->web(append: [
+            \App\Http\Middleware\EnsureTheme::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

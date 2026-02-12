@@ -13,7 +13,6 @@ class Setting extends Model
         'value',
     ];
 
-    // CRITICAL: your value is JSON in DB; cast it to array automatically
     protected $casts = [
         'value' => 'array',
     ];

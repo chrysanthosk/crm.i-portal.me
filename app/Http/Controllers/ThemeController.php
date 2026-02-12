@@ -2,30 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Support\Audit;
 
 class ThemeController extends Controller
 {
     public function toggle(Request $request)
     {
-        // Determine current theme from: user -> session -> cookie -> default
-        $current = 'light';
+        // Detect current theme from (priority): cookie -> session -> default
+        $current = $request->cookie('ui_theme')
+            ?? $request->session()->get('theme', 'light');
 
-        if (Auth::check() && Auth::user()?->theme) {
-            $current = Auth::user()->theme;
-        } elseif ($request->session()->has('theme')) {
-            $current = (string)$request->session()->get('theme', 'light');
-        } elseif ($request->cookie('ui_theme')) {
-            $current = (string)$request->cookie('ui_theme');
-        }
+        $next = ($current === 'dark') ? 'light' : 'dark';
 
-        $current = $current === 'dark' ? 'dark' : 'light';
-        $next = $current === 'dark' ? 'light' : 'dark';
-
-        // Store in session for immediate use
+        // Store in session (works for logged-in pages)
         $request->session()->put('theme', $next);
+
+        // Persist for guests + after logout (1 year)
+        $cookie = cookie(
+            'ui_theme',
+            $next,
+            60 * 24 * 365,   // minutes
+            '/',
+            null,
+            false,           // secure (set true if https)
+            false,           // httpOnly false so it's visible in browser (not required)
+            false,
+            'lax'
+        );
 
         // Store in DB for logged-in users
         if (Auth::check()) {
@@ -33,21 +38,8 @@ class ThemeController extends Controller
             $user->theme = $next;
             $user->save();
 
-            Audit::log('ui', 'theme.toggle', 'user', $user->id, ['theme' => $next]);
+            Audit::log('ui', 'theme.toggle', 'user', Auth::id(), ['theme' => $next]);
         }
-
-        // ALSO store in long-lived cookie for guests + after logout
-        $cookie = cookie(
-            'ui_theme',
-            $next,
-            60 * 24 * 365,          // 365 days
-            '/',
-            null,
-            $request->isSecure(),   // secure only on https
-            true,                   // httpOnly
-            false,
-            'Lax'
-        );
 
         return back()->withCookie($cookie);
     }
