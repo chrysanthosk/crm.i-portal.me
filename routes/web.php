@@ -14,18 +14,18 @@ use App\Http\Controllers\Admin\AuditController;
 use App\Http\Controllers\Admin\Settings\SmtpController;
 use App\Http\Controllers\Admin\Settings\ConfigurationController;
 
-// NEW: Settings pages for Services lookups
+// ✅ NEW: Settings pages for service categories / vat types
 use App\Http\Controllers\Admin\Settings\ServiceCategoryController;
 use App\Http\Controllers\Admin\Settings\VatTypeController;
 
-// Staff + Clients are staff modules
+// Staff + Clients
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\StaffController;
 
-// Appointments (non-admin)
+// Appointments
 use App\Http\Controllers\AppointmentController;
 
-// Services (non-settings main module) - keep yours if already present
+// Services
 use App\Http\Controllers\ServiceController;
 
 Route::get('/', function () {
@@ -54,7 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('profile.2fa.recovery.regenerate');
 
     /*
-     * STAFF MODULES (not admin/settings)
+     * MODULES (non-admin/settings)
      */
 
     // Clients
@@ -66,30 +66,41 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->parameters(['staff' => 'staffMember'])
         ->middleware('permission:staff.manage');
 
-    // Services (main module page)
-    Route::resource('services', ServiceController::class)->except(['show'])
-        ->middleware('permission:services.manage');
-
     // Appointments
     Route::prefix('appointments')->name('appointments.')->middleware('permission:appointment.manage')->group(function () {
         Route::get('/', [AppointmentController::class, 'index'])->name('index');
 
-        // Modal form endpoints
         Route::get('/create', [AppointmentController::class, 'create'])->name('create');
         Route::get('/{appointment}/edit', [AppointmentController::class, 'edit'])->name('edit');
 
-        // CRUD via AJAX
         Route::post('/', [AppointmentController::class, 'store'])->name('store');
         Route::put('/{appointment}', [AppointmentController::class, 'update'])->name('update');
         Route::delete('/{appointment}', [AppointmentController::class, 'destroy'])->name('destroy');
 
-        // Calendar / table endpoints
         Route::get('/resources', [AppointmentController::class, 'resources'])->name('resources');
         Route::get('/events', [AppointmentController::class, 'events'])->name('events');
         Route::patch('/{appointment}/move', [AppointmentController::class, 'move'])->name('move');
 
         Route::get('/list', [AppointmentController::class, 'list'])->name('list');
         Route::get('/export', [AppointmentController::class, 'export'])->name('export');
+    });
+
+    // ✅ Services (permission: services.manage)
+    Route::prefix('services')->name('services.')->middleware('permission:services.manage')->group(function () {
+        Route::get('/', [ServiceController::class, 'index'])->name('index');
+        Route::get('/create', [ServiceController::class, 'create'])->name('create');
+        Route::post('/', [ServiceController::class, 'store'])->name('store');
+        Route::get('/{service}/edit', [ServiceController::class, 'edit'])->name('edit');
+        Route::put('/{service}', [ServiceController::class, 'update'])->name('update');
+        Route::delete('/{service}', [ServiceController::class, 'destroy'])->name('destroy');
+
+        Route::post('/import', [ServiceController::class, 'import'])->name('import');
+
+        // ✅ Blade expects services.import.template
+        Route::get('/import/template', [ServiceController::class, 'downloadTemplate'])->name('import.template');
+
+        // optional: also keep the shorter name if you want
+        Route::get('/template', [ServiceController::class, 'downloadTemplate'])->name('template');
     });
 
     /*
@@ -108,15 +119,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('roles/{role}/permissions', [RolePermissionController::class, 'sync'])
             ->name('roles.permissions.sync')->middleware('permission:role.manage');
 
-        // NEW: Service Categories + VAT Types management (under Settings)
-        Route::resource('service-categories', ServiceCategoryController::class)
-            ->except(['show'])
-            ->middleware('permission:services.manage');
-
-        Route::resource('vat-types', VatTypeController::class)
-            ->except(['show'])
-            ->middleware('permission:services.manage');
-
         // SMTP
         Route::get('smtp', [SmtpController::class, 'edit'])->name('smtp.edit')->middleware('permission:settings.smtp');
         Route::put('smtp', [SmtpController::class, 'update'])->name('smtp.update')->middleware('permission:settings.smtp');
@@ -128,6 +130,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Audit log
         Route::get('audit', [AuditController::class, 'index'])->name('audit.index')->middleware('permission:audit.view');
+
+        // ✅ NEW: Service Categories + VAT Types settings pages
+        Route::resource('service-categories', ServiceCategoryController::class)->except(['show'])
+            ->middleware('permission:services.manage');
+
+        Route::resource('vat-types', VatTypeController::class)->except(['show'])
+            ->middleware('permission:services.manage');
     });
 });
 

@@ -25,6 +25,43 @@
     .select2-container .select2-selection--single { height: calc(2.25rem + 2px); }
     .select2-container--default .select2-selection--single .select2-selection__rendered { line-height: calc(2.25rem); }
     .select2-container--default .select2-selection--single .select2-selection__arrow { height: calc(2.25rem + 2px); }
+
+    /* ✅ Select2 + AdminLTE dark-mode fixes */
+    body.dark-mode .select2-container--default .select2-selection--single {
+        background-color: #343a40;
+        border-color: rgba(255,255,255,.15);
+        color: #f8f9fa;
+    }
+    body.dark-mode .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: #f8f9fa;
+    }
+    body.dark-mode .select2-container--default .select2-selection--single .select2-selection__arrow b {
+        border-color: #f8f9fa transparent transparent transparent;
+    }
+    body.dark-mode .select2-container--default .select2-selection--single .select2-selection__placeholder {
+        color: rgba(255,255,255,.65);
+    }
+    body.dark-mode .select2-container--default .select2-dropdown {
+        background-color: #343a40;
+        border-color: rgba(255,255,255,.15);
+        color: #f8f9fa;
+    }
+    body.dark-mode .select2-container--default .select2-results__option {
+        color: #f8f9fa;
+    }
+    body.dark-mode .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: rgba(255,255,255,.12);
+        color: #fff;
+    }
+    body.dark-mode .select2-container--default .select2-results__option[aria-selected=true] {
+        background-color: rgba(255,255,255,.18);
+        color: #fff;
+    }
+    body.dark-mode .select2-container--default .select2-search--dropdown .select2-search__field {
+        background-color: #2b3035;
+        border-color: rgba(255,255,255,.15);
+        color: #f8f9fa;
+    }
 </style>
 @endpush
 
@@ -159,21 +196,23 @@
             const trimmed = body.slice(0, 6000);
 
             $target.html(`
-          <div class="alert alert-danger mb-0">
-            <div class="fw-bold">${title}</div>
-            <div class="small">HTTP ${xhr.status}</div>
-            <pre class="small mt-2" style="white-space:pre-wrap;max-height:260px;overflow:auto;">${$('<div/>').text(trimmed).html()}</pre>
-          </div>
-        `);
+              <div class="alert alert-danger mb-0">
+                <div class="fw-bold">${title}</div>
+                <div class="small">HTTP ${xhr.status}</div>
+                <pre class="small mt-2" style="white-space:pre-wrap;max-height:260px;overflow:auto;">${$('<div/>').text(trimmed).html()}</pre>
+              </div>
+            `);
         }
 
+        // ✅ IMPORTANT: Return local ISO WITHOUT timezone suffix (no "Z", no offset)
         function isoLocal(dt) {
             const yyyy = dt.getFullYear();
             const MM = String(dt.getMonth()+1).padStart(2,'0');
             const dd = String(dt.getDate()).padStart(2,'0');
             const hh = String(dt.getHours()).padStart(2,'0');
             const mm = String(dt.getMinutes()).padStart(2,'0');
-            return `${yyyy}-${MM}-${dd} ${hh}:${mm}:00`;
+            const ss = String(dt.getSeconds()).padStart(2,'0');
+            return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}`;
         }
 
         // ─── View toggle ─────────────────────────────────────────────
@@ -217,7 +256,13 @@
                 slotMaxTime: '22:00:00',
                 nowIndicator: true,
                 selectable: true,
+
+                // ✅ Drag / resize / move between staff columns
                 editable: true,
+                eventStartEditable: true,
+                eventDurationEditable: true,
+                eventResourceEditable: true,
+
                 resources: resources,
                 events: '{{ route('appointments.events') }}',
 
@@ -353,9 +398,9 @@
         .done(function(html){
                 $body.html(html);
 
-                // prefill fields if passed
-                if (prefill.start_at) $body.find('[name="start_at"]').val(prefill.start_at.replace(' ', 'T').slice(0,16));
-                if (prefill.end_at) $body.find('[name="end_at"]').val(prefill.end_at.replace(' ', 'T').slice(0,16));
+                // prefill fields if passed (datetime-local needs YYYY-MM-DDTHH:mm)
+                if (prefill.start_at) $body.find('[name="start_at"]').val(prefill.start_at.slice(0,16));
+                if (prefill.end_at) $body.find('[name="end_at"]').val(prefill.end_at.slice(0,16));
                 if (prefill.staff_id) $body.find('[name="staff_id"]').val(prefill.staff_id).trigger('change');
 
                 bindForm($body);
@@ -416,13 +461,13 @@
                         orderable: false,
                         render: function(data, type, row){
                             return `
-                          <button class="btn btn-sm btn-outline-primary mr-1" data-action="edit" data-id="${row.id}">
-                            <i class="fas fa-edit"></i>
-                          </button>
-                          <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${row.id}">
-                            <i class="fas fa-trash"></i>
-                          </button>
-                        `;
+                              <button class="btn btn-sm btn-outline-primary mr-1" data-action="edit" data-id="${row.id}">
+                                <i class="fas fa-edit"></i>
+                              </button>
+                              <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${row.id}">
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            `;
                         }
                     }
                 ]

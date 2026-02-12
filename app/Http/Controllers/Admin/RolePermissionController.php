@@ -3,36 +3,31 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Role;
 use App\Models\Permission;
-use App\Support\Audit;
+use App\Models\Role;
 use Illuminate\Http\Request;
 
 class RolePermissionController extends Controller
 {
     public function sync(Request $request, Role $role)
     {
-        $permissionIds = $request->input('permissions', []);
-        if (!is_array($permissionIds)) {
-            $permissionIds = [];
+        // If admin role: always get ALL permissions (keeps UI consistent with "admin has access")
+        if ($role->role_key === 'admin') {
+            $allIds = Permission::query()->pluck('id')->map(fn($v) => (int)$v)->all();
+            $role->permissions()->sync($allIds);
+
+            return redirect()
+                ->route('settings.roles.index', ['role_id' => $role->id])
+                ->with('status', 'Admin role synced to ALL permissions.');
         }
 
-        // Keep only valid permission IDs
-        $validIds = Permission::query()
-            ->whereIn('id', $permissionIds)
-            ->pluck('id')
-            ->map(fn ($v) => (int)$v)
-            ->all();
+        $ids = $request->input('permissions', []);
+        $ids = array_map('intval', $ids);
 
-        $role->permissions()->sync($validIds);
-
-        Audit::log('settings', 'role.permissions.sync', 'role', $role->id, [
-            'role_key' => $role->role_key,
-            'permissions_count' => count($validIds),
-        ]);
+        $role->permissions()->sync($ids);
 
         return redirect()
             ->route('settings.roles.index', ['role_id' => $role->id])
-            ->with('status', 'Permissions updated.');
+            ->with('status', 'Permissions saved.');
     }
 }

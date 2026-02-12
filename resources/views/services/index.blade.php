@@ -25,10 +25,6 @@
     </div>
     @endif
 
-    @if (session('status'))
-    <div class="alert alert-success">{{ session('status') }}</div>
-    @endif
-
     <div class="card">
         <div class="card-header"><strong>Service List</strong></div>
 
@@ -117,7 +113,7 @@
                     </div>
 
                     <div class="mb-2">
-                        <a href="{{ route('services.import.template') }}" class="btn btn-sm btn-outline-secondary">
+                        <a href="{{ route('services.template') }}" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-download mr-1"></i> Download template
                         </a>
                     </div>

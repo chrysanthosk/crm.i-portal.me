@@ -3,6 +3,10 @@
 @section('title', 'Roles')
 
 @section('content')
+@php
+$isAdminRole = ($selectedRole && ($selectedRole->role_key ?? '') === 'admin');
+@endphp
+
 <div class="container-fluid">
 
     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -182,6 +186,13 @@
                     </div>
                     @else
 
+                    @if($isAdminRole)
+                    <div class="alert alert-info">
+                        <strong>Admin role:</strong> shown as having <strong>all permissions</strong>.
+                        Saving will re-sync admin to all permissions.
+                    </div>
+                    @endif
+
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <div>
                             <div class="text-muted small">Selected Role</div>
@@ -246,7 +257,7 @@
                                 <div class="row" id="{{ $gid }}">
                                     @foreach($perms as $p)
                                     @php
-                                    $checked = in_array((int)$p->id, $selectedRolePermissionIds, true);
+                                    $checked = $isAdminRole ? true : in_array((int)$p->id, $selectedRolePermissionIds, true);
                                     $text = strtolower(($p->permission_key ?? '') . ' ' . ($p->permission_name ?? '') . ' ' . ($p->permission_group ?? ''));
                                     @endphp
                                     <div class="col-md-6 mb-2 permission-item" data-text="{{ $text }}">
@@ -333,7 +344,6 @@
                     i.style.display = t.includes(q) ? '' : 'none';
                 });
 
-                // hide whole groups that have no visible items
                 groups.forEach(g => {
                     const visible = g.querySelectorAll('.permission-item:not([style*="display: none"])').length;
                     g.style.display = visible ? '' : 'none';

@@ -8,8 +8,6 @@ use App\Models\Service;
 use App\Models\Staff;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AppointmentController extends Controller
 {
@@ -18,364 +16,272 @@ class AppointmentController extends Controller
         return view('appointments.index');
     }
 
-    public function create(Request $request)
+    public function resources()
     {
-        $clients  = Client::query()->orderBy('first_name')->orderBy('last_name')->get();
-
+        // FullCalendar Scheduler resources (staff)
         $staff = Staff::query()
-            ->with(['user', 'role'])     // your Staff model has role()
-            ->orderBy('position')
+            ->with('user:id,name')
             ->orderBy('id')
             ->get();
 
-        $services = Service::query()->orderBy('id')->get();
+        $resources = $staff->map(function ($s) {
+            $title = $s->user?->name ?? ('Staff #'.$s->id);
+            return [
+                'id'    => (string)$s->id,
+                'title' => $title,
+            ];
+        })->values();
 
+        return response()->json($resources);
+    }
+
+    public function events(Request $request)
+    {
+        // FullCalendar sends start/end; we can ignore or filter if you want
+        $tz = config('app.timezone');
+
+        $q = Appointment::query()
+            ->with([
+                'staff.user:id,name',
+                'service:id,name',
+            ])
+            ->orderBy('start_at');
+
+        $appointments = $q->get();
+
+        $events = $appointments->map(function ($a) use ($tz) {
+            $start = $this->formatForCalendar($a->start_at, $tz);
+            $end   = $this->formatForCalendar($a->end_at, $tz);
+
+            $staffName = $a->staff?->user?->name ?? ('Staff #'.$a->staff_id);
+            $serviceName = $a->service?->name ?? 'Service';
+            $clientLabel = $a->client_id
+                ? trim(($a->client?->first_name ?? '').' '.($a->client?->last_name ?? '')) ?: ($a->client?->email ?? 'Client')
+                : ($a->client_name ?: 'Client');
+
+            return [
+                'id' => (string)$a->id,
+                'resourceId' => (string)$a->staff_id,
+                'title' => $clientLabel . ' • ' . $serviceName,
+                'start' => $start,
+                'end' => $end,
+                'editable' => true,
+                'startEditable' => true,
+                'durationEditable' => true,
+                'resourceEditable' => true,
+                'extendedProps' => [
+                    'staff' => $staffName,
+                    'status' => $a->status,
+                ],
+            ];
+        })->values();
+
+        return response()->json($events);
+    }
+
+    public function create(Request $request)
+    {
+        $staff = Staff::query()->with('user:id,name')->orderBy('id')->get();
+        $clients = Client::query()->orderBy('first_name')->orderBy('last_name')->get();
+        $services = Service::query()->orderBy('name')->get();
+
+        // modal partial
         if ($request->boolean('modal')) {
             return view('appointments._form', [
                 'mode' => 'create',
                 'appointment' => new Appointment(),
-                'clients' => $clients,
                 'staff' => $staff,
+                'clients' => $clients,
                 'services' => $services,
             ]);
         }
 
-        return view('appointments.create', compact('clients', 'staff', 'services'));
+        return view('appointments.create', [
+            'staff' => $staff,
+            'clients' => $clients,
+            'services' => $services,
+        ]);
+    }
+
+    public function edit(Request $request, Appointment $appointment)
+    {
+        $staff = Staff::query()->with('user:id,name')->orderBy('id')->get();
+        $clients = Client::query()->orderBy('first_name')->orderBy('last_name')->get();
+        $services = Service::query()->orderBy('name')->get();
+
+        if ($request->boolean('modal')) {
+            return view('appointments._form', [
+                'mode' => 'edit',
+                'appointment' => $appointment,
+                'staff' => $staff,
+                'clients' => $clients,
+                'services' => $services,
+            ]);
+        }
+
+        return view('appointments.edit', [
+            'appointment' => $appointment,
+            'staff' => $staff,
+            'clients' => $clients,
+            'services' => $services,
+        ]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validateAppointment($request);
 
-        $data['created_by'] = auth()->id();
-        $data['updated_by'] = auth()->id();
+        // Parse local datetime-local inputs as app timezone and store as plain datetime
+        $data['start_at'] = $this->parseLocalDateTime($data['start_at'])->format('Y-m-d H:i:s');
+        $data['end_at']   = $this->parseLocalDateTime($data['end_at'])->format('Y-m-d H:i:s');
 
-        $appt = Appointment::create($data);
+        $appointment = Appointment::create($data);
 
-        return response()->json([
-            'success' => true,
-            'id' => $appt->id,
-            'message' => 'Appointment created.',
-        ]);
-    }
-
-    public function edit(Request $request, Appointment $appointment)
-    {
-        $appointment->load(['client', 'staff.user', 'service']);
-
-        $clients = Client::query()->orderBy('first_name')->orderBy('last_name')->get();
-
-        $staff = Staff::query()
-            ->with(['user', 'role'])
-            ->orderBy('position')
-            ->orderBy('id')
-            ->get();
-
-        $services = Service::query()->orderBy('id')->get();
-
-        if ($request->boolean('modal')) {
-            return view('appointments._form', [
-                'mode' => 'edit',
-                'appointment' => $appointment,
-                'clients' => $clients,
-                'staff' => $staff,
-                'services' => $services,
-            ]);
-        }
-
-        return view('appointments.edit', compact('appointment', 'clients', 'staff', 'services'));
+        // Your modal submit expects JSON { success: true }
+        return response()->json(['success' => true, 'id' => $appointment->id]);
     }
 
     public function update(Request $request, Appointment $appointment)
     {
         $data = $this->validateAppointment($request, $appointment->id);
-        $data['updated_by'] = auth()->id();
+
+        $data['start_at'] = $this->parseLocalDateTime($data['start_at'])->format('Y-m-d H:i:s');
+        $data['end_at']   = $this->parseLocalDateTime($data['end_at'])->format('Y-m-d H:i:s');
 
         $appointment->update($data);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Appointment updated.',
-        ]);
+        return response()->json(['success' => true]);
     }
 
     public function destroy(Appointment $appointment)
     {
         $appointment->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Appointment deleted.',
-        ]);
-    }
-
-    /**
-     * FullCalendar "resources" endpoint (Scheduler)
-     */
-    public function resources()
-    {
-        $staff = Staff::query()
-            ->with('user')
-            // ->where('show_in_calendar', true)  // enable if you want to hide staff from calendar
-            ->orderBy('position')
-            ->orderBy('id')
-            ->get();
-
-        $resources = $staff->map(function ($s) {
-            $title = $s->user ? $s->user->name : ('Staff #' . $s->id);
-            return [
-                'id' => (string)$s->id,
-                'title' => $title,
-                'extendedProps' => [
-                    'color' => $s->color,
-                ],
-            ];
-        });
-
-        return response()->json($resources);
-    }
-
-    /**
-     * FullCalendar "events" endpoint
-     * Accepts: start, end (ISO)
-     */
-    public function events(Request $request)
-    {
-        $startQ = $request->query('start');
-        $endQ   = $request->query('end');
-
-        if (!$startQ || !$endQ) {
-            return response()->json([]); // FullCalendar expects an array
-        }
-
-        try {
-            $start = Carbon::parse($startQ);
-            $end   = Carbon::parse($endQ);
-        } catch (\Throwable $e) {
-            return response()->json([]);
-        }
-
-        $rows = Appointment::query()
-            ->with(['client', 'staff.user', 'service'])
-            ->where('start_at', '<', $end)
-            ->where('end_at', '>', $start)
-            ->get();
-
-        $events = $rows->map(function (Appointment $a) {
-            $staffColor  = $a->staff?->color ?: '#0d6efd';
-            $clientName  = $a->client_display_name;
-            $serviceName = $a->service?->name ?? ('Service #' . $a->service_id);
-
-            $title = $clientName . ' — ' . $serviceName;
-
-            return [
-                'id' => (string)$a->id,
-                'resourceId' => (string)$a->staff_id,
-                'start' => $a->start_at?->toIso8601String(),
-                'end' => $a->end_at?->toIso8601String(),
-                'title' => $title,
-                'backgroundColor' => $staffColor,
-                'borderColor' => $staffColor,
-                'textColor' => '#ffffff',
-                'extendedProps' => [
-                    'status' => $a->status,
-                    'client_id' => $a->client_id,
-                    'client_name' => $a->client_name,
-                    'client_phone' => $a->client_phone,
-                    'service_id' => $a->service_id,
-                    'notes' => $a->notes,
-                    'send_sms' => (bool)$a->send_sms,
-                ],
-            ];
-        });
-
-        return response()->json($events);
-    }
-
-    /**
-     * Drag/drop + resize handler from calendar
-     * payload: start_at, end_at, staff_id
-     */
-    public function move(Request $request, Appointment $appointment)
-    {
-        $data = $request->validate([
-            'start_at' => ['required', 'date'],
-            'end_at'   => ['required', 'date', 'after:start_at'],
-            'staff_id' => ['required', 'integer', 'exists:staff,id'],
-        ]);
-
-        $this->ensureNoOverlap(
-            (int)$data['staff_id'],
-            Carbon::parse($data['start_at']),
-            Carbon::parse($data['end_at']),
-            $appointment->id
-        );
-
-        $appointment->update([
-            'start_at' => Carbon::parse($data['start_at']),
-            'end_at'   => Carbon::parse($data['end_at']),
-            'staff_id' => (int)$data['staff_id'],
-            'updated_by' => auth()->id(),
-        ]);
-
         return response()->json(['success' => true]);
     }
 
     /**
-     * Table JSON endpoint (DataTables)
-     * Query: flag=today|all
+     * PATCH /appointments/{id}/move
+     * Payload from calendar: start_at/end_at as "YYYY-MM-DDTHH:mm:ss"
      */
-    public function list(Request $request)
+    public function move(Request $request, Appointment $appointment)
     {
-        $flag = $request->query('flag', 'today');
+        $request->validate([
+            'start_at' => ['required', 'string'],
+            'end_at'   => ['required', 'string'],
+            'staff_id' => ['nullable', 'integer'],
+        ]);
 
-        $q = Appointment::query()
-            ->with(['client', 'staff.user', 'service'])
-            ->orderByDesc('start_at');
+        $start = $this->parseLocalDateTime($request->input('start_at'));
+        $end   = $this->parseLocalDateTime($request->input('end_at'));
 
-        if ($flag === 'today') {
-            $todayStart = now()->startOfDay();
-            $todayEnd   = now()->endOfDay();
-            $q->whereBetween('start_at', [$todayStart, $todayEnd]);
+        $appointment->start_at = $start->format('Y-m-d H:i:s');
+        $appointment->end_at   = $end->format('Y-m-d H:i:s');
+
+        if ($request->filled('staff_id')) {
+            $appointment->staff_id = (int)$request->input('staff_id');
         }
 
-        $rows = $q->limit(2000)->get();
+        $appointment->save();
 
-        $data = $rows->map(function (Appointment $a) {
-            $clientName  = $a->client_display_name;
-            $staffName   = $a->staff?->user?->name ?: ('Staff #' . $a->staff_id);
-            $serviceName = $a->service?->name ?: ('Service #' . $a->service_id);
+        return response()->json(['success' => true]);
+    }
+
+    public function list(Request $request)
+    {
+        $flag = $request->get('flag', 'today');
+
+        $q = Appointment::query()
+            ->with([
+                'client',
+                'staff.user',
+                'service',
+            ])
+            ->orderBy('start_at', 'desc');
+
+        if ($flag === 'today') {
+            $q->whereDate('start_at', now()->toDateString());
+        }
+
+        $rows = $q->get()->map(function ($a) {
+            $clientName = '';
+
+            if ($a->client) {
+                $clientName = trim(($a->client->first_name ?? '') . ' ' . ($a->client->last_name ?? ''));
+            } else {
+                // fallback to appointment fields (if you store ad-hoc client info)
+                $clientName = (string)($a->client_name ?? '');
+            }
 
             return [
                 'id' => $a->id,
-                'date' => $a->start_at?->format('Y-m-d'),
-                'time' => ($a->start_at?->format('H:i') ?? '') . ' - ' . ($a->end_at?->format('H:i') ?? ''),
-                'client_name' => $clientName,
-                'staff_name' => $staffName,
-                'service_name' => $serviceName,
-                'status' => $a->status,
+                'date' => optional($a->start_at)->format('Y-m-d'),
+                'time' => optional($a->start_at)->format('H:i') . ' - ' . optional($a->end_at)->format('H:i'),
+                'client_name' => $clientName !== '' ? $clientName : '—',
+                'staff_name' => $a->staff?->user?->name ?? '—',
+                'service_name' => $a->service?->name ?? '—',
+                'status' => (string)($a->status ?? ''),
                 'notes' => (string)($a->notes ?? ''),
             ];
-        });
+        })->values();
 
-        return response()->json(['data' => $data]);
-    }
-
-    public function export(Request $request): StreamedResponse
-    {
-        $flag = $request->query('flag', 'today');
-
-        $q = Appointment::query()->with(['client', 'staff.user', 'service'])->orderByDesc('start_at');
-
-        if ($flag === 'today') {
-            $todayStart = now()->startOfDay();
-            $todayEnd   = now()->endOfDay();
-            $q->whereBetween('start_at', [$todayStart, $todayEnd]);
-        }
-
-        $rows = $q->get();
-
-        $filename = 'appointments_' . $flag . '_' . now()->format('Ymd_His') . '.csv';
-
-        return response()->streamDownload(function () use ($rows) {
-            $out = fopen('php://output', 'w');
-
-            fputcsv($out, [
-                'ID',
-                'Start',
-                'End',
-                'Staff',
-                'Client',
-                'Service',
-                'Status',
-                'Notes',
-                'Send SMS',
-            ]);
-
-            foreach ($rows as $a) {
-                $staffName   = $a->staff?->user?->name ?: ('Staff #' . $a->staff_id);
-                $clientName  = $a->client_display_name;
-                $serviceName = $a->service?->name ?: ('Service #' . $a->service_id);
-
-                fputcsv($out, [
-                    $a->id,
-                    $a->start_at?->format('Y-m-d H:i'),
-                    $a->end_at?->format('Y-m-d H:i'),
-                    $staffName,
-                    $clientName,
-                    $serviceName,
-                    $a->status,
-                    (string)($a->notes ?? ''),
-                    $a->send_sms ? '1' : '0',
-                ]);
-            }
-
-            fclose($out);
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        // DataTables expects { data: [...] }
+        return response()->json(['data' => $rows]);
     }
 
     private function validateAppointment(Request $request, ?int $ignoreId = null): array
     {
-        $data = $request->validate([
-            'start_at' => ['required', 'date'],
-            'end_at'   => ['required', 'date', 'after:start_at'],
+        return $request->validate([
             'staff_id' => ['required', 'integer', 'exists:staff,id'],
+            'start_at' => ['required', 'string'],
+            'end_at'   => ['required', 'string'],
 
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'client_name' => ['nullable', 'string', 'max:200'],
             'client_phone' => ['nullable', 'string', 'max:20'],
 
             'service_id' => ['required', 'integer', 'exists:services,id'],
-
-            'status' => ['required', Rule::in(['scheduled', 'confirmed', 'completed', 'cancelled', 'no_show'])],
+            'status' => ['required', 'string'],
+            'send_sms' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string'],
             'internal_notes' => ['nullable', 'string'],
-
-            'send_sms' => ['nullable', 'boolean'],
-            'reminder_at' => ['nullable', 'date'],
         ]);
-
-        $data['send_sms'] = (bool)$request->boolean('send_sms');
-
-        $start = Carbon::parse($data['start_at']);
-        $end   = Carbon::parse($data['end_at']);
-
-        // Require either client_id OR (client_name + client_phone)
-        $clientId = $data['client_id'] ?? null;
-        $name = trim((string)($data['client_name'] ?? ''));
-        $phone = trim((string)($data['client_phone'] ?? ''));
-
-        if ($clientId) {
-            $data['client_name'] = null;
-            $data['client_phone'] = null;
-        } else {
-            if ($name === '' || $phone === '') {
-                abort(422, 'Select an existing client or provide new client name & phone.');
-            }
-            $data['client_id'] = null;
-        }
-
-        // Overlap validation (no double booking per staff)
-        $this->ensureNoOverlap((int)$data['staff_id'], $start, $end, $ignoreId);
-
-        return $data;
     }
 
-    private function ensureNoOverlap(int $staffId, Carbon $start, Carbon $end, ?int $ignoreId = null): void
+    /**
+     * Accepts:
+     * - "YYYY-MM-DDTHH:mm" (datetime-local)
+     * - "YYYY-MM-DDTHH:mm:ss" (calendar drag)
+     */
+    private function parseLocalDateTime(string $value): Carbon
     {
-        $q = Appointment::query()
-            ->where('staff_id', $staffId)
-            ->where('start_at', '<', $end)
-            ->where('end_at', '>', $start);
+        $tz = config('app.timezone');
 
-        if ($ignoreId) {
-            $q->where('id', '!=', $ignoreId);
+        $value = trim($value);
+
+        // normalize: if seconds missing, add :00
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $value)) {
+            return Carbon::createFromFormat('Y-m-d\TH:i', $value, $tz);
         }
 
-        if ($q->exists()) {
-            abort(422, 'This staff member already has an overlapping appointment.');
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/', $value)) {
+            return Carbon::createFromFormat('Y-m-d\TH:i:s', $value, $tz);
+        }
+
+        // fallback (still treat as local)
+        return Carbon::parse($value, $tz);
+    }
+
+    /**
+     * Return calendar times WITHOUT timezone suffix (so FullCalendar treats as local)
+     */
+    private function formatForCalendar($dt, string $tz): string
+    {
+        if (!$dt) return '';
+
+        try {
+            return Carbon::parse($dt, $tz)->format('Y-m-d\TH:i:s');
+        } catch (\Throwable $e) {
+            return '';
         }
     }
 }
