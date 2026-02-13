@@ -7,19 +7,25 @@
 
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h3 mb-0">Products</h1>
-        <a href="{{ route('products.create') }}" class="btn btn-success">
-            <i class="fas fa-plus-circle mr-1"></i> Add Product
-        </a>
+
+        <div class="d-flex">
+            <a href="{{ route('products.template') }}" class="btn btn-outline-secondary mr-2">
+                <i class="fas fa-download mr-1"></i> Template
+            </a>
+
+            <a href="{{ route('products.export') }}" class="btn btn-secondary mr-2">
+                <i class="fas fa-file-csv mr-1"></i> Export CSV
+            </a>
+
+            <button type="button" class="btn btn-outline-primary mr-2" data-toggle="modal" data-target="#importProductsModal">
+                <i class="fas fa-file-import mr-1"></i> Import CSV
+            </button>
+
+            <a href="{{ route('products.create') }}" class="btn btn-success">
+                <i class="fas fa-plus-circle mr-1"></i> Add Product
+            </a>
+        </div>
     </div>
-
-    @if ($errors->any())
-        <div class="alert alert-danger">Please fix the errors below.</div>
-    @endif
-
-    @if (session('status'))
-        <div class="alert alert-success">{{ session('status') }}</div>
-    @endif
-
     <div class="card">
         <div class="card-header"><strong>Product List</strong></div>
 
@@ -89,4 +95,45 @@
     </div>
 
 </div>
+
+{{-- Import Products Modal --}}
+<div class="modal fade" id="importProductsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ route('products.import') }}" enctype="multipart/form-data" class="modal-content">
+            @csrf
+            <div class="modal-header">
+                <h5 class="modal-title">Import Products (CSV)</h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="text-muted small mb-2">
+                    Use the template for correct headers. Category and VAT can be <strong>name</strong> or <strong>id</strong>.
+                </div>
+
+                <input type="file" name="csv" class="form-control" accept=".csv,text/csv" required>
+                @error('csv') <div class="text-danger small mt-2">{{ $message }}</div> @enderror
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-primary">
+                    <i class="fas fa-file-import mr-1"></i> Import
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- Auto-open Import modal if CSV validation failed --}}
+@if ($errors->has('csv'))
+    @push('scripts')
+        <script>
+            $(function () {
+                $('#importProductsModal').modal('show');
+            });
+        </script>
+    @endpush
+@endif
+
 @endsection

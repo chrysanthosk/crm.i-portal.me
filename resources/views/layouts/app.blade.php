@@ -19,12 +19,35 @@
     @stack('styles')
 </head>
 
-<body class="hold-transition sidebar-mini {{ ($uiTheme ?? 'light') === 'dark' ? 'dark-mode' : '' }}">
+@php
+    $user = auth()->user();
+    $isDark = (($uiTheme ?? 'light') === 'dark');
+
+    // Permissions (keep your existing hasPermission method)
+    $canAppointments = ($user && ($user->role === 'admin' || $user->hasPermission('appointment.manage')));
+    $canServices     = ($user && ($user->role === 'admin' || $user->hasPermission('services.manage')));
+    $canProducts     = ($user && ($user->role === 'admin' || $user->hasPermission('products.manage')));
+    $canClients      = ($user && ($user->role === 'admin' || $user->hasPermission('client.manage')));
+    $canStaff        = ($user && ($user->role === 'admin' || $user->hasPermission('staff.manage')));
+
+    $canSettings     = ($user && ($user->role === 'admin' || $user->hasPermission('admin.access')));
+
+    // Active route helpers
+    $isDashboard     = request()->routeIs('dashboard');
+    $isAppointments  = request()->routeIs('appointments.*');
+    $isServicesRoute = request()->routeIs('services.*');
+    $isProductsRoute = request()->routeIs('products.*');
+    $isClientsRoute  = request()->routeIs('clients.*');
+    $isStaffRoute    = request()->routeIs('staff.*');
+
+    $isSettingsRoute = request()->routeIs('settings.*');
+@endphp
+
+<body class="hold-transition sidebar-mini {{ $isDark ? 'dark-mode' : '' }}">
 <div class="wrapper">
 
     {{-- Navbar --}}
-    <nav class="main-header navbar navbar-expand
-      {{ ($uiTheme ?? 'light') === 'dark' ? 'navbar-dark navbar-gray-dark' : 'navbar-white navbar-light' }}">
+    <nav class="main-header navbar navbar-expand {{ $isDark ? 'navbar-dark navbar-gray-dark' : 'navbar-white navbar-light' }}">
 
         <ul class="navbar-nav">
             <li class="nav-item">
@@ -41,9 +64,9 @@
                 <form method="POST" action="{{ route('theme.toggle') }}">
                     @csrf
                     <button type="submit"
-                            class="btn btn-sm {{ ($uiTheme ?? 'light') === 'dark' ? 'btn-outline-light' : 'btn-outline-secondary' }}"
+                            class="btn btn-sm {{ $isDark ? 'btn-outline-light' : 'btn-outline-secondary' }}"
                             title="Toggle theme">
-                        <i class="fas {{ ($uiTheme ?? 'light') === 'dark' ? 'fa-sun' : 'fa-moon' }}"></i>
+                        <i class="fas {{ $isDark ? 'fa-sun' : 'fa-moon' }}"></i>
                     </button>
                 </form>
             </li>
@@ -52,7 +75,7 @@
             <li class="nav-item dropdown">
                 <a class="nav-link" data-toggle="dropdown" href="#">
                     <i class="far fa-user"></i>
-                    <span class="ml-1">{{ auth()->user()->name }}</span>
+                    <span class="ml-1">{{ $user?->name }}</span>
                 </a>
 
                 <div class="dropdown-menu dropdown-menu-right">
@@ -86,17 +109,17 @@
 
                     <li class="nav-item">
                         <a href="{{ route('dashboard') }}"
-                           class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                           class="nav-link {{ $isDashboard ? 'active' : '' }}">
                             <i class="nav-icon fas fa-tachometer-alt"></i>
                             <p>Dashboard</p>
                         </a>
                     </li>
 
                     {{-- Appointments --}}
-                    @if(auth()->user()->hasPermission('appointment.manage') || auth()->user()->role === 'admin')
+                    @if($canAppointments)
                     <li class="nav-item">
                         <a href="{{ route('appointments.index') }}"
-                           class="nav-link {{ request()->routeIs('appointments.*') ? 'active' : '' }}">
+                           class="nav-link {{ $isAppointments ? 'active' : '' }}">
                             <i class="nav-icon fas fa-calendar-check"></i>
                             <p>Appointments</p>
                         </a>
@@ -104,21 +127,32 @@
                     @endif
 
                     {{-- Services --}}
-                    @if(auth()->user()->hasPermission('services.manage') || auth()->user()->role === 'admin')
+                    @if($canServices)
                     <li class="nav-item">
                         <a href="{{ route('services.index') }}"
-                           class="nav-link {{ request()->routeIs('services.*') ? 'active' : '' }}">
+                           class="nav-link {{ $isServicesRoute ? 'active' : '' }}">
                             <i class="nav-icon fas fa-concierge-bell"></i>
                             <p>Services</p>
                         </a>
                     </li>
                     @endif
 
+                    {{-- Products --}}
+                    @if($canProducts)
+                    <li class="nav-item">
+                        <a href="{{ route('products.index') }}"
+                           class="nav-link {{ $isProductsRoute ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-boxes"></i>
+                            <p>Products</p>
+                        </a>
+                    </li>
+                    @endif
+
                     {{-- Clients --}}
-                    @if(auth()->user()->hasPermission('client.manage') || auth()->user()->role === 'admin')
+                    @if($canClients)
                     <li class="nav-item">
                         <a href="{{ route('clients.index') }}"
-                           class="nav-link {{ request()->routeIs('clients.*') ? 'active' : '' }}">
+                           class="nav-link {{ $isClientsRoute ? 'active' : '' }}">
                             <i class="nav-icon fas fa-user-tag"></i>
                             <p>Clients</p>
                         </a>
@@ -126,10 +160,10 @@
                     @endif
 
                     {{-- Staff --}}
-                    @if(auth()->user()->hasPermission('staff.manage') || auth()->user()->role === 'admin')
+                    @if($canStaff)
                     <li class="nav-item">
                         <a href="{{ route('staff.index') }}"
-                           class="nav-link {{ request()->routeIs('staff.*') ? 'active' : '' }}">
+                           class="nav-link {{ $isStaffRoute ? 'active' : '' }}">
                             <i class="nav-icon fas fa-user-nurse"></i>
                             <p>Staff</p>
                         </a>
@@ -137,11 +171,11 @@
                     @endif
 
                     {{-- Settings --}}
-                    @if(auth()->user()->role === 'admin' || auth()->user()->hasPermission('admin.access'))
+                    @if($canSettings)
                     <li class="nav-header">SETTINGS</li>
 
-                    <li class="nav-item has-treeview {{ request()->routeIs('settings.*') ? 'menu-open' : '' }}">
-                        <a href="#" class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}">
+                    <li class="nav-item has-treeview {{ $isSettingsRoute ? 'menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $isSettingsRoute ? 'active' : '' }}">
                             <i class="nav-icon fas fa-cogs"></i>
                             <p>Settings<i class="right fas fa-angle-left"></i></p>
                         </a>
@@ -162,7 +196,7 @@
                                 </a>
                             </li>
 
-                            {{-- NEW: lookups for services --}}
+                            {{-- Service lookups --}}
                             <li class="nav-item">
                                 <a href="{{ route('settings.service-categories.index') }}"
                                    class="nav-link {{ request()->routeIs('settings.service-categories.*') ? 'active' : '' }}">
@@ -176,6 +210,16 @@
                                     <i class="far fa-circle nav-icon"></i><p>VAT Types</p>
                                 </a>
                             </li>
+
+                            {{-- Product Categories under Settings --}}
+                            @if($canProducts)
+                            <li class="nav-item">
+                                <a href="{{ route('settings.product-categories.index') }}"
+                                   class="nav-link {{ request()->routeIs('settings.product-categories.*') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i><p>Product Categories</p>
+                                </a>
+                            </li>
+                            @endif
 
                             <li class="nav-item">
                                 <a href="{{ route('settings.smtp.edit') }}"
