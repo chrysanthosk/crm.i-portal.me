@@ -11,13 +11,17 @@ class Appointment extends Model
         'end_at',
         'staff_id',
         'client_id',
+
+        // legacy fallback fields (keep for old rows / compatibility)
         'client_name',
         'client_phone',
+
         'service_id',
         'status',
         'notes',
         'internal_notes',
         'send_sms',
+
         'reminder_at',
         'sms_attempts',
         'sms_sent_success',
@@ -27,6 +31,7 @@ class Appointment extends Model
         'sms_provider',
         'sms_provider_message_id',
         'sms_last_error',
+
         'created_by',
         'updated_by',
     ];
@@ -60,9 +65,14 @@ class Appointment extends Model
 
     public function getClientDisplayNameAttribute(): string
     {
-        if ($this->client) {
-            return trim(($this->client->first_name ?? '') . ' ' . ($this->client->last_name ?? '')) ?: ($this->client->email ?? 'Client');
+        // Prefer linked client if available
+        if ($this->client_id && ($this->relationLoaded('client') ? $this->client : $this->client()->exists())) {
+            $c = $this->client;
+            return trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? ''))
+                ?: ($c->email ?? 'Client');
         }
+
+        // fallback for legacy appointments
         return $this->client_name ?: 'Client';
     }
 }
