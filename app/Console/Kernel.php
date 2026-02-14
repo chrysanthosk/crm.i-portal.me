@@ -7,14 +7,17 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
 class Kernel extends ConsoleKernel
 {
-    protected $commands = [
-        \App\Console\Commands\SyncPermissions::class,
-    ];
-
     protected function schedule(Schedule $schedule): void
     {
-        // Optional: keep permissions synced daily
-        // $schedule->command('permissions:sync')->daily();
+        // Appointment reminders: due reminders are checked every minute
+        $schedule->command('sms:send-appointment-reminders')
+            ->everyMinute()
+            ->withoutOverlapping();
+
+        // Birthday SMS: once daily (adjust time as you like)
+        $schedule->command('sms:send-birthday')
+            ->dailyAt('09:00')
+            ->withoutOverlapping();
     }
 
     protected function commands(): void

@@ -9,6 +9,7 @@ use App\Models\Staff;
 use App\Models\ServiceCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AppointmentController extends Controller
@@ -58,7 +59,7 @@ class AppointmentController extends Controller
 
             $clientLabel = $a->client_id
                 ? (trim(($a->client?->first_name ?? '') . ' ' . ($a->client?->last_name ?? '')) ?: ($a->client?->email ?? 'Client'))
-                : 'Client';
+                : ($a->client_name ?: 'Client');
 
             return [
                 'id' => (string) $a->id,
@@ -80,10 +81,6 @@ class AppointmentController extends Controller
         return response()->json($events);
     }
 
-    /**
-     * JSON endpoint used by dependent dropdown (category -> services)
-     * GET /appointments/services?category_id=1
-     */
     public function servicesByCategory(Request $request)
     {
         $request->validate([
@@ -115,7 +112,7 @@ class AppointmentController extends Controller
         $clients = Client::query()->orderBy('first_name')->orderBy('last_name')->get();
 
         $serviceCategories = ServiceCategory::query()->orderBy('name')->get();
-        $services = Service::query()->orderBy('name')->get(); // fallback list (JS filters it)
+        $services = Service::query()->orderBy('name')->get();
 
         if ($request->boolean('modal')) {
             return view('appointments._form', [
@@ -168,16 +165,18 @@ class AppointmentController extends Controller
     {
         $data = $this->validateAppointment($request);
 
-        // If no existing client selected => create a new client
         if (empty($data['client_id'])) {
             $data['client_id'] = $this->createClientFromAppointment($data);
         }
 
-        // Parse local datetime-local inputs as app timezone and store as plain datetime
-        $data['start_at'] = $this->parseLocalDateTime($data['start_at'])->format('Y-m-d H:i:s');
-        $data['end_at']   = $this->parseLocalDateTime($data['end_at'])->format('Y-m-d H:i:s');
+        $start = $this->parseLocalDateTime($data['start_at']);
+        $end   = $this->parseLocalDateTime($data['end_at']);
 
-        // Keep appointments table clean: do not store the temp client fields
+        $data['start_at'] = $start->format('Y-m-d H:i:s');
+        $data['end_at']   = $end->format('Y-m-d H:i:s');
+
+        $this->applyReminderAndResetSmsState($data, $start);
+
         unset($data['client_first_name'], $data['client_last_name'], $data['client_phone'], $data['service_category_id']);
 
         $appointment = Appointment::create($data);
@@ -189,13 +188,17 @@ class AppointmentController extends Controller
     {
         $data = $this->validateAppointment($request, $appointment->id);
 
-        // On edit: if user cleared client_id and provided new client fields => create new client
         if (empty($data['client_id'])) {
             $data['client_id'] = $this->createClientFromAppointment($data);
         }
 
-        $data['start_at'] = $this->parseLocalDateTime($data['start_at'])->format('Y-m-d H:i:s');
-        $data['end_at']   = $this->parseLocalDateTime($data['end_at'])->format('Y-m-d H:i:s');
+        $start = $this->parseLocalDateTime($data['start_at']);
+        $end   = $this->parseLocalDateTime($data['end_at']);
+
+        $data['start_at'] = $start->format('Y-m-d H:i:s');
+        $data['end_at']   = $end->format('Y-m-d H:i:s');
+
+        $this->applyReminderAndResetSmsState($data, $start);
 
         unset($data['client_first_name'], $data['client_last_name'], $data['client_phone'], $data['service_category_id']);
 
@@ -210,9 +213,6 @@ class AppointmentController extends Controller
         return response()->json(['success' => true]);
     }
 
-    /**
-     * PATCH /appointments/{id}/move
-     */
     public function move(Request $request, Appointment $appointment)
     {
         $request->validate([
@@ -230,6 +230,24 @@ class AppointmentController extends Controller
         if ($request->filled('staff_id')) {
             $appointment->staff_id = (int) $request->input('staff_id');
         }
+
+        // Recompute reminder_at and reset SMS state if SMS reminders are applicable
+        $payload = [
+            'send_sms' => (bool)$appointment->send_sms,
+            'status' => (string)$appointment->status,
+        ];
+        $this->applyReminderAndResetSmsState($payload, $start);
+        $appointment->reminder_at = $payload['reminder_at'] ?? null;
+
+        // Reset SMS fields so the reminder can re-send for the new time
+        $appointment->sms_attempts = 0;
+        $appointment->sms_sent_success = false;
+        $appointment->sms_send_failed = false;
+        $appointment->sms_sent_at = null;
+        $appointment->sms_failed_at = null;
+        $appointment->sms_provider = null;
+        $appointment->sms_provider_message_id = null;
+        $appointment->sms_last_error = null;
 
         $appointment->save();
 
@@ -253,10 +271,8 @@ class AppointmentController extends Controller
         }
 
         $rows = $q->get()->map(function ($a) {
-            $clientName = '';
-            if ($a->client) {
-                $clientName = trim(($a->client->first_name ?? '') . ' ' . ($a->client->last_name ?? ''));
-            }
+            $clientName = $a->client ? trim(($a->client->first_name ?? '') . ' ' . ($a->client->last_name ?? '')) : '';
+            if ($clientName === '') $clientName = $a->client_name ?: '';
 
             return [
                 'id' => $a->id,
@@ -273,10 +289,6 @@ class AppointmentController extends Controller
         return response()->json(['data' => $rows]);
     }
 
-    /**
-     * CSV Export
-     * GET /appointments/export?flag=today|all
-     */
     public function export(Request $request): StreamedResponse
     {
         $flag = $request->get('flag', 'today');
@@ -301,33 +313,21 @@ class AppointmentController extends Controller
 
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
-
-            // UTF-8 BOM for Excel compatibility
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
 
-            // Header
             fputcsv($out, [
-                'ID',
-                'Start',
-                'End',
-                'Client',
-                'Client Email',
-                'Staff',
-                'Service',
-                'Status',
-                'Notes',
+                'ID','Start','End','Client','Client Email','Staff','Service','Status','Notes',
             ]);
 
             foreach ($rows as $a) {
                 $clientName = $a->client
                     ? trim(($a->client->first_name ?? '').' '.($a->client->last_name ?? ''))
-                    : '';
+                    : ($a->client_name ?? '');
 
                 $clientEmail = $a->client?->email ?? '';
                 $staffName = $a->staff?->user?->name ?? '';
                 $serviceName = $a->service?->name ?? '';
 
-                // keep them as stored (local app timezone style)
                 $start = $a->start_at ? Carbon::parse($a->start_at)->format('Y-m-d H:i') : '';
                 $end   = $a->end_at ? Carbon::parse($a->end_at)->format('Y-m-d H:i') : '';
 
@@ -348,10 +348,14 @@ class AppointmentController extends Controller
         }, $filename, $headers);
     }
 
+    /**
+     * FIXED: no ->tap() on array.
+     * Laravel $request->validate() returns an array; to add after-hook validation
+     * we must use Validator::make().
+     */
     private function validateAppointment(Request $request, ?int $ignoreId = null): array
     {
-        // If no client_id => require first/last name for new client
-        return $request->validate([
+        $rules = [
             'staff_id' => ['required', 'integer', 'exists:staff,id'],
             'start_at' => ['required', 'string'],
             'end_at'   => ['required', 'string'],
@@ -362,21 +366,24 @@ class AppointmentController extends Controller
             'client_last_name'  => ['nullable', 'string', 'max:100', 'required_without:client_id'],
             'client_phone'      => ['nullable', 'string', 'max:20'],
 
-            // UI requires category first
             'service_category_id' => ['required', 'integer', 'exists:service_categories,id'],
-
-            // service_id must exist; we also enforce it belongs to selected category in after-hook
             'service_id' => ['required', 'integer', 'exists:services,id'],
 
             'status' => ['required', 'string'],
             'send_sms' => ['nullable', 'boolean'],
             'notes' => ['nullable', 'string'],
             'internal_notes' => ['nullable', 'string'],
-        ], [
+        ];
+
+        $messages = [
             'client_first_name.required_without' => 'First name is required when no existing client is selected.',
             'client_last_name.required_without'  => 'Last name is required when no existing client is selected.',
-        ])->tap(function ($validator) use ($request) {
-            // Ensure service belongs to category
+        ];
+
+        $validator = Validator::make($request->all(), $rules, $messages);
+
+        // Ensure selected service belongs to selected category
+        $validator->after(function ($v) use ($request) {
             $catId = (int) $request->input('service_category_id');
             $svcId = (int) $request->input('service_id');
 
@@ -387,10 +394,12 @@ class AppointmentController extends Controller
                     ->exists();
 
                 if (!$ok) {
-                    $validator->errors()->add('service_id', 'Selected service does not belong to the chosen category.');
+                    $v->errors()->add('service_id', 'Selected service does not belong to the chosen category.');
                 }
             }
         });
+
+        return $validator->validate();
     }
 
     private function createClientFromAppointment(array $data): int
@@ -399,9 +408,7 @@ class AppointmentController extends Controller
         $last  = trim((string)($data['client_last_name'] ?? ''));
         $phone = trim((string)($data['client_phone'] ?? ''));
 
-        // Safety guard: validation should catch, but keep it safe
         if ($first === '' || $last === '') {
-            // fallback: avoid creating garbage clients
             throw new \RuntimeException('Cannot create client: first/last name missing.');
         }
 
@@ -415,11 +422,6 @@ class AppointmentController extends Controller
         return (int) $client->id;
     }
 
-    /**
-     * Accepts:
-     * - "YYYY-MM-DDTHH:mm" (datetime-local)
-     * - "YYYY-MM-DDTHH:mm:ss" (calendar drag)
-     */
     private function parseLocalDateTime(string $value): Carbon
     {
         $tz = config('app.timezone');
@@ -436,9 +438,6 @@ class AppointmentController extends Controller
         return Carbon::parse($value, $tz);
     }
 
-    /**
-     * Return calendar times WITHOUT timezone suffix (so FullCalendar treats as local)
-     */
     private function formatForCalendar($dt, string $tz): string
     {
         if (!$dt) return '';
@@ -448,5 +447,31 @@ class AppointmentController extends Controller
         } catch (\Throwable $e) {
             return '';
         }
+    }
+
+    /**
+     * Applies reminder_at = start_at - 24h for confirmed+send_sms.
+     * Also resets SMS state fields so scheduler can send again correctly.
+     */
+    private function applyReminderAndResetSmsState(array &$data, Carbon $start): void
+    {
+        $sendSms = isset($data['send_sms']) ? (bool)$data['send_sms'] : false;
+        $status  = strtolower(trim((string)($data['status'] ?? '')));
+
+        if ($sendSms && $status === 'confirmed') {
+            $data['reminder_at'] = $start->copy()->subHours(24)->format('Y-m-d H:i:s');
+        } else {
+            $data['reminder_at'] = null;
+        }
+
+        // Reset SMS state whenever appointment is created/edited
+        $data['sms_attempts'] = 0;
+        $data['sms_sent_success'] = false;
+        $data['sms_send_failed'] = false;
+        $data['sms_sent_at'] = null;
+        $data['sms_failed_at'] = null;
+        $data['sms_provider'] = null;
+        $data['sms_provider_message_id'] = null;
+        $data['sms_last_error'] = null;
     }
 }

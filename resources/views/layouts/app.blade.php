@@ -31,6 +31,7 @@
     $canStaff        = ($user && ($user->role === 'admin' || $user->hasPermission('staff.manage')));
 
     $canSettings     = ($user && ($user->role === 'admin' || $user->hasPermission('admin.access')));
+    $canSms          = ($user && ($user->role === 'admin' || $user->hasPermission('sms.manage')));
 
     // Active route helpers
     $isDashboard     = request()->routeIs('dashboard');
@@ -41,6 +42,7 @@
     $isStaffRoute    = request()->routeIs('staff.*');
 
     $isSettingsRoute = request()->routeIs('settings.*');
+    $isSmsRoute      = request()->routeIs('settings.sms.*');
 @endphp
 
 <body class="hold-transition sidebar-mini {{ $isDark ? 'dark-mode' : '' }}">
@@ -196,7 +198,6 @@
                                 </a>
                             </li>
 
-                            {{-- Service lookups --}}
                             <li class="nav-item">
                                 <a href="{{ route('settings.service-categories.index') }}"
                                    class="nav-link {{ request()->routeIs('settings.service-categories.*') ? 'active' : '' }}">
@@ -211,12 +212,27 @@
                                 </a>
                             </li>
 
-                            {{-- Product Categories under Settings --}}
                             @if($canProducts)
                             <li class="nav-item">
                                 <a href="{{ route('settings.product-categories.index') }}"
                                    class="nav-link {{ request()->routeIs('settings.product-categories.*') ? 'active' : '' }}">
                                     <i class="far fa-circle nav-icon"></i><p>Product Categories</p>
+                                </a>
+                            </li>
+                            @endif
+
+                            {{-- ✅ SMS Settings + Logs --}}
+                            @if($canSms)
+                            <li class="nav-item">
+                                <a href="{{ route('settings.sms.edit') }}"
+                                   class="nav-link {{ request()->routeIs('settings.sms.edit') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i><p>SMS Settings</p>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route('settings.sms.logs') }}"
+                                   class="nav-link {{ request()->routeIs('settings.sms.logs') ? 'active' : '' }}">
+                                    <i class="far fa-circle nav-icon"></i><p>SMS Logs</p>
                                 </a>
                             </li>
                             @endif
@@ -255,7 +271,18 @@
     <div class="content-wrapper">
         <section class="content pt-3">
             <div class="container-fluid">
-                @include('partials.flash')
+
+                {{-- Flash messages (no partials) --}}
+                @if (session('status'))
+                    <div class="alert alert-success">{{ session('status') }}</div>
+                @endif
+                @if (session('error'))
+                    <div class="alert alert-danger">{{ session('error') }}</div>
+                @endif
+                @if ($errors->any())
+                    <div class="alert alert-danger">Please fix the errors below.</div>
+                @endif
+
                 @yield('content')
             </div>
         </section>
