@@ -19,6 +19,10 @@ use App\Http\Controllers\Admin\Settings\ServiceCategoryController;
 use App\Http\Controllers\Admin\Settings\VatTypeController;
 use App\Http\Controllers\Admin\Settings\ProductCategoryController as SettingsProductCategoryController;
 
+// ✅ SMS Settings + Logs
+use App\Http\Controllers\Admin\Settings\SmsSettingsController;
+use App\Http\Controllers\Admin\Settings\SmsLogsController;
+
 // Staff + Clients
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\StaffController;
@@ -142,10 +146,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/smtp/test', [SmtpController::class, 'test'])
             ->name('smtp.test')->middleware('permission:settings.smtp');
 
+        // Configuration (main page + section updates)
         Route::get('/configuration', [ConfigurationController::class, 'edit'])
             ->name('config.edit')->middleware('permission:settings.config');
+
         Route::put('/configuration/system', [ConfigurationController::class, 'updateSystem'])
             ->name('config.system.update')->middleware('permission:settings.config');
+
+        // ✅ FIX: add missing routes that your blade calls + controller already has
+        Route::put('/configuration/company', [ConfigurationController::class, 'updateCompany'])
+            ->name('config.company.update')->middleware('permission:settings.config');
+
+        Route::put('/configuration/sms', [ConfigurationController::class, 'updateSms'])
+            ->name('config.sms.update')->middleware('permission:settings.config');
 
         Route::get('/audit', [AuditController::class, 'index'])
             ->name('audit.index')->middleware('permission:audit.view');
@@ -168,6 +181,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->name('product-categories.import');
 
             Route::resource('product-categories', SettingsProductCategoryController::class)->except(['show']);
+        });
+
+        /*
+         * ✅ SMS (under Settings)
+         * Permission key: sms.manage
+         */
+        Route::middleware('permission:sms.manage')->group(function () {
+
+            // Main pages
+            Route::get('/sms', [SmsSettingsController::class, 'edit'])->name('sms.edit');
+            Route::get('/sms/logs', [SmsLogsController::class, 'index'])->name('sms.logs');
+
+            // Providers CRUD
+            Route::post('/sms/providers/save', [SmsSettingsController::class, 'saveProvider'])->name('sms.providers.save');
+            Route::delete('/sms/providers/{provider}', [SmsSettingsController::class, 'deleteProvider'])->name('sms.providers.delete');
+
+            // AJAX endpoints
+            Route::post('/sms/providers/{provider}/toggle', [SmsSettingsController::class, 'toggleProviderActive'])->name('sms.providers.toggle');
+            Route::post('/sms/providers/priority', [SmsSettingsController::class, 'updatePriority'])->name('sms.providers.priority');
+            Route::get('/sms/providers/{provider}/settings', [SmsSettingsController::class, 'fetchSettings'])->name('sms.providers.settings');
+
+            // Save settings
+            Route::post('/sms/settings/save', [SmsSettingsController::class, 'saveSettings'])->name('sms.settings.save');
+
+            // Test SMS
+            Route::post('/sms/test', [SmsSettingsController::class, 'sendTestSms'])->name('sms.test');
         });
     });
 });

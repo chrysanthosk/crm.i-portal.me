@@ -245,7 +245,7 @@
                 resourceTimeGridFiveDay: { type: 'resourceTimeGrid', duration: { days: 5 }, buttonText: '5 days' }
             },
             slotMinTime: '06:00:00',
-            slotMaxTime: '22:00:00',
+            slotMaxTime: '23:00:00',
             nowIndicator: true,
             selectable: true,
 
