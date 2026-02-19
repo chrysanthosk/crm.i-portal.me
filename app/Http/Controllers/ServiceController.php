@@ -64,6 +64,62 @@ class ServiceController extends Controller
     }
 
     /**
+     * EXPORT Services to CSV
+     */
+    public function export(): StreamedResponse
+    {
+        $filename = 'services_export_' . now()->format('Ymd_His') . '.csv';
+
+        $query = Service::query()
+            ->with(['category', 'vatType'])
+            ->orderBy('id');
+
+        return response()->streamDownload(function () use ($query) {
+            $out = fopen('php://output', 'w');
+
+            // UTF-8 BOM (helps Excel)
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            // Header row
+            fputcsv($out, [
+                'id',
+                'name',
+                'category',
+                'gender',
+                'price',
+                'vat',
+                'duration',
+                'waiting',
+                'comment',
+                'created_at',
+                'updated_at',
+            ]);
+
+            $query->chunk(500, function ($chunk) use ($out) {
+                foreach ($chunk as $s) {
+                    fputcsv($out, [
+                        $s->id,
+                        $s->name,
+                        $s->category?->name ?? '',
+                        $s->gender,
+                        number_format((float)$s->price, 2, '.', ''),
+                        $s->vatType?->name ?? '',
+                        (int)$s->duration,
+                        (int)$s->waiting,
+                        $s->comment ?? '',
+                        optional($s->created_at)->format('Y-m-d H:i:s'),
+                        optional($s->updated_at)->format('Y-m-d H:i:s'),
+                    ]);
+                }
+            });
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    /**
      * Download CSV template
      * columns:
      * category,name,gender,price,vat,duration,waiting,comment
@@ -74,6 +130,7 @@ class ServiceController extends Controller
 
         return response()->streamDownload(function () {
             $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
             fputcsv($out, ['category', 'name', 'gender', 'price', 'vat', 'duration', 'waiting', 'comment']);
             fputcsv($out, ['Physio', 'Massage 30', 'Both', '30.00', '19', '30', '0', 'Example row']);
             fclose($out);

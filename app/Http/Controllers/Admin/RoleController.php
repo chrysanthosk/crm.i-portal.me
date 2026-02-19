@@ -16,26 +16,30 @@ class RoleController extends Controller
         $selectedRoleId = (int)($request->query('role_id') ?? ($roles->first()?->id ?? 0));
         $selectedRole   = $roles->firstWhere('id', $selectedRoleId);
 
+        // Load ALL permissions (no pagination)
         $permissions = Permission::query()
             ->orderBy('permission_group')
             ->orderBy('permission_name')
             ->orderBy('permission_key')
             ->get();
 
-        $permissionsGrouped = $permissions->groupBy(fn($p) => $p->permission_group ?: 'General');
+        // Group them for the blade
+        $permissionsGrouped = $permissions->groupBy(function ($p) {
+            $g = trim((string)($p->permission_group ?? ''));
+            return $g !== '' ? $g : 'General';
+        });
 
         $selectedRolePermissionIds = [];
         if ($selectedRole) {
             $selectedRolePermissionIds = $selectedRole->permissions()
                 ->pluck('permissions.id')
-                ->map(fn($v) => (int)$v)   // SQLite returns strings
+                ->map(fn($v) => (int)$v) // sqlite returns strings
                 ->values()
                 ->all();
         }
 
-        $view = view()->exists('settings.roles.index') ? 'settings.roles.index' : 'roles.index';
-
-        return view($view, [
+        // ✅ Force the exact blade you said you use
+        return view('settings.roles.index', [
             'roles' => $roles,
             'selectedRoleId' => $selectedRoleId,
             'selectedRole' => $selectedRole,
