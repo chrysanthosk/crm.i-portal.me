@@ -9,6 +9,10 @@
         <h1 class="h3 mb-0">Services</h1>
 
         <div>
+            <a href="{{ route('services.export') }}" class="btn btn-outline-secondary mr-2">
+                <i class="fas fa-file-export mr-1"></i> Export
+            </a>
+
             <a href="{{ route('services.create') }}" class="btn btn-success mr-2">
                 <i class="fas fa-plus-circle mr-1"></i> Add Service
             </a>
