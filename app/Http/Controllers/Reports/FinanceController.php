@@ -14,13 +14,11 @@ class FinanceController extends Controller
 {
     public function __construct()
     {
-        // ✅ Apply permission once for all endpoints in this controller
         $this->middleware('permission:reporting.view');
     }
 
     private function parseMonth(?string $m): string
     {
-        // expects YYYY-MM, fallback current month
         if ($m && preg_match('/^\d{4}-\d{2}$/', $m)) {
             return $m;
         }
@@ -34,9 +32,64 @@ class FinanceController extends Controller
         return [$start, $end];
     }
 
-    /*
-     * EXPENSES
-     */
+    private function validateExpenseRows(array $rows, Carbon $start, Carbon $end, bool $requireId = false): array
+    {
+        $errors = [];
+
+        foreach ($rows as $i => $row) {
+            $rules = [
+                'id' => [$requireId ? 'required' : 'nullable', 'integer'],
+                'date' => ['required', 'date'],
+                'name' => ['required', 'string', 'max:255'],
+                'amount_paid' => ['required', 'numeric', 'min:0'],
+                'payment_type' => ['nullable', 'string', 'max:100'],
+                'cheque_no' => ['nullable', 'string', 'max:100'],
+                'invoice_reason' => ['nullable', 'string'],
+            ];
+
+            $v = Validator::make($row, $rules);
+
+            if ($v->fails()) {
+                $errors[$i] = $v->errors()->toArray();
+                continue;
+            }
+
+            $date = Carbon::parse($row['date'])->toDateString();
+            if ($date < $start->toDateString() || $date > $end->toDateString()) {
+                $errors[$i]['date'] = ['Date must be within selected month.'];
+            }
+        }
+
+        return $errors;
+    }
+
+    private function validateIncomeRows(array $rows, Carbon $start, Carbon $end): array
+    {
+        $errors = [];
+
+        foreach ($rows as $i => $row) {
+            $v = Validator::make($row, [
+                'date' => ['required', 'date'],
+                'cash' => ['nullable', 'numeric'],
+                'revolut' => ['nullable', 'numeric'],
+                'visa' => ['nullable', 'numeric'],
+                'other' => ['nullable', 'numeric'],
+            ]);
+
+            if ($v->fails()) {
+                $errors[$i] = $v->errors()->toArray();
+                continue;
+            }
+
+            $date = Carbon::parse($row['date'])->toDateString();
+            if ($date < $start->toDateString() || $date > $end->toDateString()) {
+                $errors[$i]['date'] = ['Date must be within selected month.'];
+            }
+        }
+
+        return $errors;
+    }
+
     public function expenses(Request $request)
     {
         $month = $this->parseMonth($request->query('m'));
@@ -71,31 +124,14 @@ class FinanceController extends Controller
             return response()->json(['message' => 'Invalid payload'], 422);
         }
 
-        $errors = [];
+        $errors = $this->validateExpenseRows($rows, $start, $end, false);
+        if (!empty($errors)) {
+            return response()->json(['message' => 'Validation failed', 'errors' => $errors], 422);
+        }
 
-        DB::transaction(function () use ($rows, $start, $end, &$errors) {
-            foreach ($rows as $i => $row) {
-                $v = Validator::make($row, [
-                    'id' => ['nullable', 'integer'],
-                    'date' => ['required', 'date'],
-                    'name' => ['required', 'string', 'max:255'],
-                    'amount_paid' => ['required', 'numeric', 'min:0'],
-                    'payment_type' => ['nullable', 'string', 'max:100'],
-                    'cheque_no' => ['nullable', 'string', 'max:100'],
-                    'invoice_reason' => ['nullable', 'string'],
-                ]);
-
-                if ($v->fails()) {
-                    $errors[$i] = $v->errors()->toArray();
-                    continue;
-                }
-
+        DB::transaction(function () use ($rows) {
+            foreach ($rows as $row) {
                 $date = Carbon::parse($row['date'])->toDateString();
-                if ($date < $start->toDateString() || $date > $end->toDateString()) {
-                    $errors[$i]['date'] = ['Date must be within selected month.'];
-                    continue;
-                }
-
                 $data = [
                     'date' => $date,
                     'name' => trim((string)($row['name'] ?? '')),
@@ -109,17 +145,12 @@ class FinanceController extends Controller
                 if ($id) {
                     Expense::query()->whereKey($id)->update($data);
                 } else {
-                    // only create if meaningful
                     if ($data['name'] !== '' || $data['amount_paid'] > 0) {
                         Expense::create($data);
                     }
                 }
             }
         });
-
-        if (!empty($errors)) {
-            return response()->json(['message' => 'Validation failed', 'errors' => $errors], 422);
-        }
 
         return response()->json(['ok' => true]);
     }
@@ -134,32 +165,15 @@ class FinanceController extends Controller
             return response()->json(['message' => 'Invalid payload'], 422);
         }
 
-        $errors = [];
+        $errors = $this->validateExpenseRows($rows, $start, $end, false);
+        if (!empty($errors)) {
+            return response()->json(['message' => 'Import validation failed', 'errors' => $errors], 422);
+        }
 
-        DB::transaction(function () use ($rows, $start, $end, &$errors) {
-            foreach ($rows as $i => $row) {
-                $v = Validator::make($row, [
-                    'date' => ['required', 'date'],
-                    'name' => ['required', 'string', 'max:255'],
-                    'amount_paid' => ['required', 'numeric'],
-                    'payment_type' => ['nullable', 'string', 'max:100'],
-                    'cheque_no' => ['nullable', 'string', 'max:100'],
-                    'invoice_reason' => ['nullable', 'string'],
-                ]);
-
-                if ($v->fails()) {
-                    $errors[$i] = $v->errors()->toArray();
-                    continue;
-                }
-
-                $date = Carbon::parse($row['date'])->toDateString();
-                if ($date < $start->toDateString() || $date > $end->toDateString()) {
-                    $errors[$i]['date'] = ['Date must be within selected month.'];
-                    continue;
-                }
-
+        DB::transaction(function () use ($rows) {
+            foreach ($rows as $row) {
                 Expense::create([
-                    'date' => $date,
+                    'date' => Carbon::parse($row['date'])->toDateString(),
                     'name' => trim((string)($row['name'] ?? '')),
                     'amount_paid' => round((float)$row['amount_paid'], 2),
                     'payment_type' => isset($row['payment_type']) ? trim((string)$row['payment_type']) : null,
@@ -169,16 +183,9 @@ class FinanceController extends Controller
             }
         });
 
-        if (!empty($errors)) {
-            return response()->json(['message' => 'Import validation failed', 'errors' => $errors], 422);
-        }
-
         return response()->json(['ok' => true]);
     }
 
-    /*
-     * INCOME
-     */
     public function income(Request $request)
     {
         $month = $this->parseMonth($request->query('m'));
@@ -213,29 +220,14 @@ class FinanceController extends Controller
             return response()->json(['message' => 'Invalid payload'], 422);
         }
 
-        $errors = [];
+        $errors = $this->validateIncomeRows($rows, $start, $end);
+        if (!empty($errors)) {
+            return response()->json(['message' => 'Validation failed', 'errors' => $errors], 422);
+        }
 
-        DB::transaction(function () use ($rows, $start, $end, &$errors) {
-            foreach ($rows as $i => $row) {
-                $v = Validator::make($row, [
-                    'date' => ['required', 'date'],
-                    'cash' => ['nullable', 'numeric'],
-                    'revolut' => ['nullable', 'numeric'],
-                    'visa' => ['nullable', 'numeric'],
-                    'other' => ['nullable', 'numeric'],
-                ]);
-
-                if ($v->fails()) {
-                    $errors[$i] = $v->errors()->toArray();
-                    continue;
-                }
-
+        DB::transaction(function () use ($rows) {
+            foreach ($rows as $row) {
                 $date = Carbon::parse($row['date'])->toDateString();
-                if ($date < $start->toDateString() || $date > $end->toDateString()) {
-                    $errors[$i]['date'] = ['Date must be within selected month.'];
-                    continue;
-                }
-
                 $data = [
                     'date' => $date,
                     'cash' => round((float)($row['cash'] ?? 0), 2),
@@ -247,10 +239,6 @@ class FinanceController extends Controller
                 Income::query()->updateOrCreate(['date' => $date], $data);
             }
         });
-
-        if (!empty($errors)) {
-            return response()->json(['message' => 'Validation failed', 'errors' => $errors], 422);
-        }
 
         return response()->json(['ok' => true]);
     }
@@ -265,29 +253,14 @@ class FinanceController extends Controller
             return response()->json(['message' => 'Invalid payload'], 422);
         }
 
-        $errors = [];
+        $errors = $this->validateIncomeRows($rows, $start, $end);
+        if (!empty($errors)) {
+            return response()->json(['message' => 'Import validation failed', 'errors' => $errors], 422);
+        }
 
-        DB::transaction(function () use ($rows, $start, $end, &$errors) {
-            foreach ($rows as $i => $row) {
-                $v = Validator::make($row, [
-                    'date' => ['required', 'date'],
-                    'cash' => ['nullable', 'numeric'],
-                    'revolut' => ['nullable', 'numeric'],
-                    'visa' => ['nullable', 'numeric'],
-                    'other' => ['nullable', 'numeric'],
-                ]);
-
-                if ($v->fails()) {
-                    $errors[$i] = $v->errors()->toArray();
-                    continue;
-                }
-
+        DB::transaction(function () use ($rows) {
+            foreach ($rows as $row) {
                 $date = Carbon::parse($row['date'])->toDateString();
-                if ($date < $start->toDateString() || $date > $end->toDateString()) {
-                    $errors[$i]['date'] = ['Date must be within selected month.'];
-                    continue;
-                }
-
                 $data = [
                     'date' => $date,
                     'cash' => round((float)($row['cash'] ?? 0), 2),
@@ -299,10 +272,6 @@ class FinanceController extends Controller
                 Income::query()->updateOrCreate(['date' => $date], $data);
             }
         });
-
-        if (!empty($errors)) {
-            return response()->json(['message' => 'Import validation failed', 'errors' => $errors], 422);
-        }
 
         return response()->json(['ok' => true]);
     }

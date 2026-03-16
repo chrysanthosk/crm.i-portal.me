@@ -13,21 +13,18 @@ class PosController extends Controller
 {
     public function index()
     {
-        // 1) Products with VAT
         $products = DB::table('products as p')
             ->join('vat_types as vt', 'p.sell_vat_type_id', '=', 'vt.id')
             ->select('p.id', 'p.name', 'p.sell_price', 'vt.vat_percent')
             ->orderBy('p.name')
             ->get();
 
-        // 2) Services with VAT
         $services = DB::table('services as s')
             ->join('vat_types as vt', 's.vat_type_id', '=', 'vt.id')
             ->select('s.id', 's.name', DB::raw('s.price as sell_price'), 'vt.vat_percent')
             ->orderBy('s.name')
             ->get();
 
-        // 3) Pending appointments (today, no sale yet)
         $appointments = DB::table('appointments as a')
             ->join('services as sv', 'a.service_id', '=', 'sv.id')
             ->join('vat_types as vt', 'sv.vat_type_id', '=', 'vt.id')
@@ -55,21 +52,18 @@ class PosController extends Controller
             })
             ->values();
 
-        // 4) Clients
         $clients = DB::table('clients')
             ->select('id', DB::raw("TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) as name"))
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get();
 
-        // 5) Staff (staff -> users.name)
         $staff = DB::table('staff as st')
             ->leftJoin('users as u', 'u.id', '=', 'st.user_id')
             ->select('st.id', DB::raw("COALESCE(u.name, 'Staff #' || st.id) as name"))
             ->orderBy('st.id')
             ->get();
 
-        // 6) Payment methods
         $payments = DB::table('payment_methods')
             ->select('id', 'name')
             ->orderBy('name')
@@ -107,32 +101,112 @@ class PosController extends Controller
 
         try {
             return DB::transaction(function () use ($items, $staffId, $methodId, $paid, $clientId) {
-
-                // (A) detect appointment sale if any
+                $normalizedItems = [];
                 $appointmentId = null;
-                foreach ($items as $it) {
-                    if (($it['type'] ?? '') === 'appointment') {
-                        $appointmentId = (int)($it['appt_id'] ?? 0);
-                        if ($appointmentId > 0) break;
+
+                foreach ($items as $idx => $it) {
+                    $type = (string)($it['type'] ?? '');
+                    $qty  = max(1, (int)($it['qty'] ?? 1));
+
+                    if ($type === 'service') {
+                        $serviceId = (int)($it['id'] ?? 0);
+                        $service = DB::table('services as s')
+                            ->join('vat_types as vt', 's.vat_type_id', '=', 'vt.id')
+                            ->where('s.id', $serviceId)
+                            ->select('s.id', DB::raw('s.price as sell_price'), 'vt.vat_percent')
+                            ->first();
+
+                        if (!$service) {
+                            return response()->json(['error' => "Service item #{$idx} is invalid."], 422);
+                        }
+
+                        $normalizedItems[] = [
+                            'type' => 'service',
+                            'service_id' => $serviceId,
+                            'quantity' => $qty,
+                            'unit_price' => (float)$service->sell_price,
+                            'vat_percent' => (float)$service->vat_percent,
+                        ];
+                        continue;
                     }
+
+                    if ($type === 'appointment') {
+                        $apptId = (int)($it['appt_id'] ?? 0);
+                        $appt = DB::table('appointments as a')
+                            ->join('services as s', 'a.service_id', '=', 's.id')
+                            ->join('vat_types as vt', 's.vat_type_id', '=', 'vt.id')
+                            ->leftJoin('sales as sale', 'sale.appointment_id', '=', 'a.id')
+                            ->where('a.id', $apptId)
+                            ->whereNull('sale.id')
+                            ->select('a.id', 'a.service_id', DB::raw('s.price as sell_price'), 'vt.vat_percent')
+                            ->first();
+
+                        if (!$appt) {
+                            return response()->json(['error' => "Appointment item #{$idx} is invalid or already sold."], 422);
+                        }
+
+                        $appointmentId ??= $apptId;
+                        if ($appointmentId !== $apptId) {
+                            return response()->json(['error' => 'Only one appointment can be checked out in a single sale.'], 422);
+                        }
+
+                        $normalizedItems[] = [
+                            'type' => 'appointment',
+                            'appointment_id' => $apptId,
+                            'service_id' => (int)$appt->service_id,
+                            'quantity' => 1,
+                            'unit_price' => (float)$appt->sell_price,
+                            'vat_percent' => (float)$appt->vat_percent,
+                        ];
+                        continue;
+                    }
+
+                    if ($type === 'product') {
+                        $productId = (int)($it['id'] ?? 0);
+                        $product = DB::table('products as p')
+                            ->join('vat_types as vt', 'p.sell_vat_type_id', '=', 'vt.id')
+                            ->where('p.id', $productId)
+                            ->select('p.id', 'p.sell_price', 'p.quantity_stock', 'vt.vat_percent')
+                            ->lockForUpdate()
+                            ->first();
+
+                        if (!$product) {
+                            return response()->json(['error' => "Product item #{$idx} is invalid."], 422);
+                        }
+
+                        if (isset($product->quantity_stock) && (float)$product->quantity_stock < $qty) {
+                            return response()->json(['error' => "Product #{$productId} does not have enough stock."], 422);
+                        }
+
+                        $normalizedItems[] = [
+                            'type' => 'product',
+                            'product_id' => $productId,
+                            'quantity' => $qty,
+                            'unit_price' => (float)$product->sell_price,
+                            'vat_percent' => (float)$product->vat_percent,
+                        ];
+                        continue;
+                    }
+
+                    return response()->json(['error' => "Cart item #{$idx} has unsupported type."], 422);
                 }
 
-                // (B) compute VAT-inclusive → net & tax totals
+                if (empty($normalizedItems)) {
+                    return response()->json(['error' => 'Cart is empty.'], 422);
+                }
+
                 $servicesSub = 0.0; $productsSub = 0.0;
                 $servicesVat = 0.0; $productsVat = 0.0;
 
-                foreach ($items as $it) {
-                    $type    = (string)($it['type'] ?? '');
-                    $unitInc = (float)($it['price'] ?? 0);
-                    $vatPct  = ((float)($it['vat'] ?? 0)) / 100.0;
-                    $qty     = max(1, (int)($it['qty'] ?? 1));
-
-                    if ($unitInc <= 0) continue;
+                foreach ($normalizedItems as $item) {
+                    $unitInc = (float)$item['unit_price'];
+                    $vatPct  = ((float)$item['vat_percent']) / 100.0;
+                    $qty     = (int)$item['quantity'];
 
                     $netPerUnit = $unitInc / (1.0 + $vatPct);
                     $taxPerUnit = $unitInc - $netPerUnit;
 
-                    if ($type === 'service' || $type === 'appointment') {
+                    if ($item['type'] === 'service' || $item['type'] === 'appointment') {
                         $servicesSub += $netPerUnit * $qty;
                         $servicesVat += $taxPerUnit * $qty;
                     } else {
@@ -142,21 +216,20 @@ class PosController extends Controller
                 }
 
                 $totalVat = $servicesVat + $productsVat;
-                $grand    = $servicesSub + $productsSub + $totalVat;
+                $grand    = round($servicesSub + $productsSub + $totalVat, 2);
 
                 if ($paid + 0.00001 < $grand) {
                     return response()->json(['error' => 'Amount paid is less than grand total.'], 422);
                 }
 
-                // (C) insert sale
                 $saleRow = [
                     'appointment_id'    => $appointmentId,
                     'client_id'         => $clientId,
-                    'services_subtotal' => $servicesSub,
-                    'services_vat'      => $servicesVat,
-                    'products_subtotal' => $productsSub,
-                    'products_vat'      => $productsVat,
-                    'total_vat'         => $totalVat,
+                    'services_subtotal' => round($servicesSub, 2),
+                    'services_vat'      => round($servicesVat, 2),
+                    'products_subtotal' => round($productsSub, 2),
+                    'products_vat'      => round($productsVat, 2),
+                    'total_vat'         => round($totalVat, 2),
                     'grand_total'       => $grand,
                 ];
 
@@ -168,25 +241,20 @@ class PosController extends Controller
 
                 $saleId = DB::table('sales')->insertGetId($saleRow);
 
-                // helpers for timestamps
                 $ssHasCreated = Schema::hasColumn('sale_services', 'created_at');
                 $ssHasUpdated = Schema::hasColumn('sale_services', 'updated_at');
                 $spHasCreated = Schema::hasColumn('sale_products', 'created_at');
                 $spHasUpdated = Schema::hasColumn('sale_products', 'updated_at');
 
-                // (D) line-items
-                foreach ($items as $it) {
-                    $type      = (string)($it['type'] ?? '');
-                    $qty       = max(1, (int)($it['qty'] ?? 1));
-                    $unitInc   = (float)($it['price'] ?? 0);
-                    $lineTotal = $unitInc * $qty;
+                foreach ($normalizedItems as $item) {
+                    $qty       = (int)$item['quantity'];
+                    $unitInc   = (float)$item['unit_price'];
+                    $lineTotal = round($unitInc * $qty, 2);
 
-                    if ($unitInc <= 0) continue;
-
-                    if ($type === 'service') {
+                    if ($item['type'] === 'service') {
                         $row = [
                             'sale_id'    => $saleId,
-                            'service_id' => (int)($it['id'] ?? 0),
+                            'service_id' => $item['service_id'],
                             'staff_id'   => $staffId,
                             'quantity'   => $qty,
                             'unit_price' => $unitInc,
@@ -195,48 +263,47 @@ class PosController extends Controller
                         if ($ssHasCreated) $row['created_at'] = now();
                         if ($ssHasUpdated) $row['updated_at'] = now();
                         DB::table('sale_services')->insert($row);
+                        continue;
+                    }
 
-                    } elseif ($type === 'appointment') {
+                    if ($item['type'] === 'appointment') {
                         $row = [
                             'sale_id'    => $saleId,
-                            'service_id' => (int)($it['service_id'] ?? 0),
+                            'service_id' => $item['service_id'],
                             'staff_id'   => $staffId,
                             'quantity'   => 1,
                             'unit_price' => $unitInc,
-                            'line_total' => $unitInc,
+                            'line_total' => round($unitInc, 2),
                         ];
                         if ($ssHasCreated) $row['created_at'] = now();
                         if ($ssHasUpdated) $row['updated_at'] = now();
                         DB::table('sale_services')->insert($row);
+                        continue;
+                    }
 
-                    } else { // product
-                        $row = [
-                            'sale_id'    => $saleId,
-                            'product_id' => (int)($it['id'] ?? 0),
-                            'staff_id'   => $staffId,
-                            'quantity'   => $qty,
-                            'unit_price' => $unitInc,
-                            'line_total' => $lineTotal,
+                    $row = [
+                        'sale_id'    => $saleId,
+                        'product_id' => $item['product_id'],
+                        'staff_id'   => $staffId,
+                        'quantity'   => $qty,
+                        'unit_price' => $unitInc,
+                        'line_total' => $lineTotal,
+                    ];
+                    if ($spHasCreated) $row['created_at'] = now();
+                    if ($spHasUpdated) $row['updated_at'] = now();
+                    DB::table('sale_products')->insert($row);
+
+                    if (Schema::hasColumn('products', 'quantity_stock')) {
+                        $upd = [
+                            'quantity_stock' => DB::raw('quantity_stock - ' . $qty),
                         ];
-                        if ($spHasCreated) $row['created_at'] = now();
-                        if ($spHasUpdated) $row['updated_at'] = now();
-                        DB::table('sale_products')->insert($row);
-
-                        // Optional: decrease stock if column exists
-                        if (Schema::hasColumn('products', 'quantity_stock')) {
-                            $pid = (int)($it['id'] ?? 0);
-                            if ($pid > 0) {
-                                $upd = [
-                                    'quantity_stock' => DB::raw('quantity_stock - ' . (int)$qty),
-                                ];
-                                if (Schema::hasColumn('products', 'updated_at')) $upd['updated_at'] = now();
-                                DB::table('products')->where('id', $pid)->update($upd);
-                            }
+                        if (Schema::hasColumn('products', 'updated_at')) {
+                            $upd['updated_at'] = now();
                         }
+                        DB::table('products')->where('id', $item['product_id'])->update($upd);
                     }
                 }
 
-                // (E) payment — your migration uses payment_method_id, so store that.
                 DB::table('sale_payments')->insert([
                     'sale_id'           => $saleId,
                     'payment_method_id' => $methodId,
@@ -245,7 +312,6 @@ class PosController extends Controller
                     'updated_at'        => now(),
                 ]);
 
-                // (F) loyalty (optional)
                 if (
                     Schema::hasTable('loyalty_settings') &&
                     Schema::hasTable('loyalty_transactions') &&
@@ -301,29 +367,21 @@ class PosController extends Controller
         }
     }
 
-    /**
-     * Printable receipt (80mm thermal)
-     */
     public function receipt($saleId)
     {
         $saleId = (int) $saleId;
 
-        // Sale header + manual client + appointment client + appointment service
         $sale = DB::table('sales as s')
-            ->leftJoin('clients as mc', 'mc.id', '=', 's.client_id') // manual client
+            ->leftJoin('clients as mc', 'mc.id', '=', 's.client_id')
             ->leftJoin('appointments as a', 'a.id', '=', 's.appointment_id')
-            ->leftJoin('clients as ac', 'ac.id', '=', 'a.client_id') // appointment client
+            ->leftJoin('clients as ac', 'ac.id', '=', 'a.client_id')
             ->leftJoin('services as sv', 'sv.id', '=', 'a.service_id')
             ->select([
                 's.*',
-
-                // manual client
                 's.client_id as manual_client_id',
                 'mc.first_name as manual_first',
                 'mc.last_name as manual_last',
                 'mc.mobile as manual_mobile',
-
-                // appointment info
                 'a.id as appt_id',
                 'a.start_at as appt_start_at',
                 'a.client_name as appt_client_name_fallback',
@@ -342,7 +400,6 @@ class PosController extends Controller
         elseif (!empty($sale->created_at)) $saleDate = Carbon::parse($sale->created_at);
         else $saleDate = now();
 
-        // Decide which client to print
         $isAppt = false;
         if (!empty($sale->manual_client_id)) {
             $clientName   = trim(($sale->manual_first ?? '') . ' ' . ($sale->manual_last ?? '')) ?: 'Walk-in';
@@ -365,7 +422,6 @@ class PosController extends Controller
             $apptTime = Carbon::parse($sale->appt_start_at);
         }
 
-        // Lines
         $serviceLines = DB::table('sale_services as ss')
             ->join('services as sv', 'sv.id', '=', 'ss.service_id')
             ->select('sv.name as name', 'ss.quantity', 'ss.unit_price', 'ss.line_total')
@@ -380,7 +436,6 @@ class PosController extends Controller
             ->orderBy('p.name')
             ->get();
 
-        // Payments with method name
         $payments = DB::table('sale_payments as sp')
             ->leftJoin('payment_methods as pm', 'pm.id', '=', 'sp.payment_method_id')
             ->where('sp.sale_id', $saleId)
@@ -390,7 +445,6 @@ class PosController extends Controller
             ])
             ->get();
 
-        // Company info from dashboard_settings (id=1 equivalent)
         $ds = DashboardSetting::query()->first();
         $company = [
             'company_name'         => $ds->company_name ?? ($ds->dashboard_name ?? config('app.name')),

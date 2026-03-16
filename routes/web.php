@@ -72,6 +72,7 @@ Route::get('/', function () {
 });
 
 Route::post('/theme/toggle', [ThemeController::class, 'toggle'])->name('theme.toggle');
+Route::get('/profile/email/confirm/{token}', [ProfileController::class, 'confirmEmailChange'])->name('profile.email.confirm');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -17,41 +18,31 @@ class PosSalesController extends Controller
         $to     = trim((string)$request->query('to', ''));
         $pmId   = $request->query('payment_method_id');
 
-        // NEW: show voided toggle
         $showVoided = (string)$request->query('show_voided', '0') === '1';
 
-        // Limit options (like your old page)
         $limitRaw = (string)$request->query('limit', '50');
         $allowedLimits = ['50','100','200','300','all'];
         if (!in_array($limitRaw, $allowedLimits, true)) $limitRaw = '50';
 
-        $perPage = $limitRaw === 'all' ? 5000 : (int)$limitRaw; // "all" but still safe
+        $perPage = $limitRaw === 'all' ? 5000 : (int)$limitRaw;
 
-        // Schema-safe date columns
         $hasSaleDate   = Schema::hasColumn('sales', 'sale_date');
         $hasCreatedAt  = Schema::hasColumn('sales', 'created_at');
 
-        // VOID columns (schema-safe)
         $hasVoidedAt   = Schema::hasColumn('sales', 'voided_at');
         $hasVoidedBy   = Schema::hasColumn('sales', 'voided_by');
         $hasVoidReason = Schema::hasColumn('sales', 'void_reason');
 
-        // Payment methods for filter dropdown
         $paymentMethods = DB::table('payment_methods')->select('id', 'name')->orderBy('name')->get();
 
-        // Build select list safely (do NOT select non-existent columns)
         $select = [
             's.id',
             's.grand_total',
             's.total_vat',
             's.appointment_id',
             's.client_id',
-
-            // manual client
             DB::raw("mc.first_name as manual_first"),
             DB::raw("mc.last_name as manual_last"),
-
-            // appointment client + fallback
             DB::raw("ac.first_name as appt_first"),
             DB::raw("ac.last_name as appt_last"),
             DB::raw("a.client_name as appt_client_fallback"),
@@ -64,19 +55,16 @@ class PosSalesController extends Controller
         if ($hasVoidedBy)   $select[] = 's.voided_by';
         if ($hasVoidReason) $select[] = 's.void_reason';
 
-        // Base query: sales + both client sources
         $q = DB::table('sales as s')
             ->leftJoin('clients as mc', 'mc.id', '=', 's.client_id')
             ->leftJoin('appointments as a', 'a.id', '=', 's.appointment_id')
             ->leftJoin('clients as ac', 'ac.id', '=', 'a.client_id')
             ->select($select);
 
-        // Default: hide voided (if column exists)
         if ($hasVoidedAt && !$showVoided) {
             $q->whereNull('s.voided_at');
         }
 
-        // Search by client name (manual or appointment)
         if ($search !== '') {
             $q->where(function ($w) use ($search) {
                 $like = '%' . $search . '%';
@@ -86,7 +74,6 @@ class PosSalesController extends Controller
             });
         }
 
-        // Date filters (sale_date preferred, else created_at)
         if ($from !== '') {
             try {
                 $fromDt = Carbon::parse($from)->startOfDay();
@@ -109,7 +96,6 @@ class PosSalesController extends Controller
             } catch (Throwable $e) {}
         }
 
-        // Filter by payment method (optional)
         if ($pmId !== null && $pmId !== '') {
             $q->whereExists(function ($sub) use ($pmId) {
                 $sub->select(DB::raw(1))
@@ -119,7 +105,6 @@ class PosSalesController extends Controller
             });
         }
 
-        // Sort newest first
         if ($hasSaleDate) {
             $q->orderByDesc('s.sale_date');
         } elseif ($hasCreatedAt) {
@@ -130,7 +115,6 @@ class PosSalesController extends Controller
 
         $sales = $q->paginate($perPage)->appends($request->query());
 
-        // Load lines/payments in bulk
         $saleIds = $sales->getCollection()->pluck('id')->values()->all();
 
         $serviceLinesBySale = collect();
@@ -163,7 +147,6 @@ class PosSalesController extends Controller
                 ->groupBy('sale_id');
         }
 
-        // Prepare computed fields for the view
         $sales->getCollection()->transform(function ($s) use ($hasSaleDate, $hasCreatedAt, $hasVoidedAt) {
             $manualName = trim(($s->manual_first ?? '') . ' ' . ($s->manual_last ?? ''));
             $apptName   = trim(($s->appt_first ?? '') . ' ' . ($s->appt_last ?? ''));
@@ -171,7 +154,6 @@ class PosSalesController extends Controller
 
             $s->client_name = $manualName ?: ($apptName ?: ($fallback ?: 'Walk-in'));
 
-            // Date to display
             $date = null;
             if ($hasSaleDate && !empty($s->sale_date)) {
                 $date = $s->sale_date;
@@ -180,7 +162,6 @@ class PosSalesController extends Controller
             }
             $s->display_date = $date ? Carbon::parse($date) : now();
 
-            // Void status
             $s->is_voided = ($hasVoidedAt && !empty($s->voided_at));
 
             return $s;
@@ -192,8 +173,6 @@ class PosSalesController extends Controller
             'serviceLinesBySale' => $serviceLinesBySale,
             'productLinesBySale' => $productLinesBySale,
             'paymentsBySale'     => $paymentsBySale,
-
-            // filters
             'search'      => $search,
             'from'        => $from,
             'to'          => $to,
@@ -203,14 +182,10 @@ class PosSalesController extends Controller
         ]);
     }
 
-    /**
-     * VOID a sale (no delete, keeps numbering & history)
-     */
     public function void(Request $request, $sale)
     {
         $saleId = (int)$sale;
 
-        // If columns not present, fail clearly (prevents silent break)
         if (!Schema::hasColumn('sales', 'voided_at')) {
             return redirect()
                 ->route('pos.sales.index')
@@ -218,39 +193,36 @@ class PosSalesController extends Controller
         }
 
         $data = $request->validate([
-            'void_reason' => ['nullable', 'string', 'max:255'],
+            'reason' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $reason = trim((string)($data['void_reason'] ?? ''));
-        if ($reason === '') $reason = 'Voided by user';
-
         try {
-            DB::transaction(function () use ($saleId, $reason) {
-                // Don’t void twice
-                $saleRow = DB::table('sales')->where('id', $saleId)->first();
-                if (!$saleRow) {
-                    throw new \RuntimeException("Sale not found.");
+            DB::transaction(function () use ($saleId, $data, $request) {
+                $sale = DB::table('sales')->lockForUpdate()->where('id', $saleId)->first();
+                if (!$sale) {
+                    abort(404, 'Sale not found.');
                 }
-                if (!empty($saleRow->voided_at)) {
-                    return; // already voided
+
+                if (!empty($sale->voided_at)) {
+                    return;
                 }
 
                 $update = [
-                    'voided_at'   => now(),
-                    'void_reason' => Schema::hasColumn('sales', 'void_reason') ? $reason : null,
+                    'voided_at' => now(),
                 ];
 
                 if (Schema::hasColumn('sales', 'voided_by')) {
-                    $update['voided_by'] = auth()->id();
+                    $update['voided_by'] = $request->user()?->id;
+                }
+                if (Schema::hasColumn('sales', 'void_reason')) {
+                    $update['void_reason'] = trim((string)($data['reason'] ?? '')) ?: null;
                 }
                 if (Schema::hasColumn('sales', 'updated_at')) {
                     $update['updated_at'] = now();
                 }
 
-                // Remove null keys if columns don’t exist
-                $update = array_filter($update, fn($v) => $v !== null);
-
                 DB::table('sales')->where('id', $saleId)->update($update);
+                Audit::log('pos', 'sale.void', 'sale', $saleId, ['reason' => $update['void_reason'] ?? null]);
             });
 
             return redirect()
@@ -258,37 +230,20 @@ class PosSalesController extends Controller
                 ->with('success', "Sale #{$saleId} voided successfully.");
         } catch (Throwable $e) {
             report($e);
-
             return redirect()
                 ->route('pos.sales.index')
-                ->with('error', 'VOID failed: ' . $e->getMessage());
+                ->with('error', 'Could not void sale: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Optional: keep hard delete (not recommended). Remove UI button.
-     */
     public function destroy($sale)
     {
-        $saleId = (int)$sale;
+        $saleId = (int) $sale;
 
-        try {
-            DB::transaction(function () use ($saleId) {
-                DB::table('sale_payments')->where('sale_id', $saleId)->delete();
-                DB::table('sale_products')->where('sale_id', $saleId)->delete();
-                DB::table('sale_services')->where('sale_id', $saleId)->delete();
-                DB::table('sales')->where('id', $saleId)->delete();
-            });
+        Audit::log('pos', 'sale.delete.blocked', 'sale', $saleId);
 
-            return redirect()
-                ->route('pos.sales.index')
-                ->with('success', 'Sale deleted successfully.');
-        } catch (Throwable $e) {
-            report($e);
-
-            return redirect()
-                ->route('pos.sales.index')
-                ->with('error', 'Delete failed: ' . $e->getMessage());
-        }
+        return redirect()
+            ->route('pos.sales.index')
+            ->with('error', 'Hard deleting sales is disabled. Please use VOID to preserve accounting history.');
     }
 }
