@@ -14,10 +14,19 @@ class InitialSetupSeeder extends Seeder
 {
     public function run(): void
     {
-        // Roles
+        $ownerRole = Role::firstOrCreate(
+            ['role_key' => 'owner'],
+            ['role_name' => 'Owner', 'role_desc' => 'Clinic owner with full business access']
+        );
+
         $adminRole = Role::firstOrCreate(
             ['role_key' => 'admin'],
-            ['role_name' => 'Admin', 'role_desc' => 'Full access']
+            ['role_name' => 'Admin', 'role_desc' => 'Administrative full access']
+        );
+
+        $receptionRole = Role::firstOrCreate(
+            ['role_key' => 'reception'],
+            ['role_name' => 'Reception', 'role_desc' => 'Reception/front-desk operations']
         );
 
         $userRole = Role::firstOrCreate(
@@ -25,7 +34,6 @@ class InitialSetupSeeder extends Seeder
             ['role_name' => 'User', 'role_desc' => 'Standard user']
         );
 
-        // Core permissions (grow this list as you add new modules)
         $perms = [
             ['permission_key' => 'admin.access', 'permission_group' => 'admin', 'permission_desc' => 'Access admin area'],
             ['permission_key' => 'user.manage', 'permission_group' => 'admin', 'permission_desc' => 'Manage users'],
@@ -41,30 +49,35 @@ class InitialSetupSeeder extends Seeder
             $permIds[] = $perm->id;
         }
 
-        // Admin role gets all current permissions (though code also shortcuts role=admin)
         $adminRole->permissions()->syncWithoutDetaching($permIds);
+        $ownerRole->permissions()->syncWithoutDetaching($permIds);
+        $receptionRole->permissions()->syncWithoutDetaching(
+            Permission::query()->whereIn('permission_key', [
+                'appointment.manage',
+                'appointment.view',
+                'calendar.view',
+                'client.manage',
+                'pos.access',
+                'pos.sales.view',
+                'reporting.view',
+            ])->pluck('id')->all()
+        );
 
-        // User role gets just admin.access? NO - keep admin area restricted.
-        // If later you want a “backoffice user” role, you can grant admin.access without admin role.
-
-        // Default admin user
         User::firstOrCreate(
             ['email' => 'admin@example.com'],
             [
                 'first_name' => 'Admin',
                 'last_name' => 'User',
                 'name' => 'Admin User',
-                'role' => 'admin',
+                'role' => 'owner',
                 'password' => Hash::make('ChangeMe123!!'),
                 'email_verified_at' => now(),
                 'theme' => 'light',
             ]
         );
 
-        // SMTP row
         SmtpSetting::firstOrCreate([], ['enabled' => false]);
 
-        // System settings
         Setting::firstOrCreate(['key' => 'system'], ['value' => [
             'header_name' => config('app.name'),
             'footer_name' => config('app.name'),

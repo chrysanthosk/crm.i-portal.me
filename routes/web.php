@@ -76,7 +76,7 @@ Route::get('/profile/email/confirm/{token}', [ProfileController::class, 'confirm
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     /*
      * ✅ Calendar View (read-only calendar for users who can view, full control for appointment.manage)
