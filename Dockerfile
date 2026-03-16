@@ -20,4 +20,4 @@ RUN composer install --no-interaction --prefer-dist --optimize-autoloader \
     && npm run build \
     && chown -R www-data:www-data /var/www/html
 
-CMD sh -lc 'php artisan key:generate --force --no-interaction || true && php artisan migrate --force && php artisan db:seed --class=Database\\Seeders\\DatabaseSeeder --force && php artisan db:seed --class=Database\\Seeders\\InitialSetupSeeder --force && php artisan db:seed --class=Database\\Seeders\\PaymentMethodSeeder --force && php artisan db:seed --class=Database\\Seeders\\SmsProviderSeeder --force && php artisan serve --host=0.0.0.0 --port=8000'
+CMD sh -lc 'php artisan migrate --force && php artisan db:seed --class=Database\\Seeders\\DatabaseSeeder --force && php artisan db:seed --class=Database\\Seeders\\InitialSetupSeeder --force && php artisan db:seed --class=Database\\Seeders\\PaymentMethodSeeder --force && php artisan db:seed --class=Database\\Seeders\\SmsProviderSeeder --force && php artisan serve --host=0.0.0.0 --port=8000'
