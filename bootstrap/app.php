@@ -12,6 +12,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
+        $middleware->trustProxies(at: '*');
+
         /**
          * Register route middleware aliases (Laravel 11/12 style).
          * This FIXES: "Target class [permission] does not exist."

@@ -47,17 +47,15 @@ class User extends Authenticatable
         'two_factor_enabled' => 'boolean',
     ];
 
-    /**
-     * Keep recovery codes stored as JSON string in DB.
-     * Accessor returns array always.
-     */
+    protected ?Role $resolvedRoleModel = null;
+    protected ?array $resolvedPermissionKeys = null;
+
     public function getTwoFactorRecoveryCodesAttribute($value): array
     {
         if (empty($value)) {
             return [];
         }
 
-        // If it was somehow stored as an array already, return it
         if (is_array($value)) {
             return $value;
         }
@@ -70,18 +68,11 @@ class User extends Authenticatable
         }
     }
 
-    /**
-     * Mutator: accept array and store JSON.
-     */
     public function setTwoFactorRecoveryCodesAttribute($value): void
     {
         $this->attributes['two_factor_recovery_codes'] = json_encode($value ?? [], JSON_UNESCAPED_SLASHES);
     }
 
-    /**
-     * Return decrypted two_factor_secret (stored encrypted in DB).
-     * If older value was stored plain, fall back to raw.
-     */
     public function getTwoFactorSecretPlain(): ?string
     {
         if (empty($this->two_factor_secret)) {
@@ -95,17 +86,11 @@ class User extends Authenticatable
         }
     }
 
-    /**
-     * Store two_factor_secret encrypted (or null).
-     */
     public function setTwoFactorSecretPlain(?string $secret): void
     {
         $this->two_factor_secret = $secret ? Crypt::encryptString($secret) : null;
     }
 
-    /**
-     * True only when enabled flag + secret + confirmed_at are present.
-     */
     public function hasTwoFactorEnabled(): bool
     {
         return (bool) $this->two_factor_enabled
@@ -113,11 +98,6 @@ class User extends Authenticatable
             && !empty($this->two_factor_confirmed_at);
     }
 
-    /**
-     * Permission check:
-     * - role === 'admin' => full access
-     * - else, resolve Role by role_key and check relationship
-     */
     public function hasPermission(string $permissionKey): bool
     {
         if (($this->role ?? null) === 'admin') {
@@ -129,19 +109,23 @@ class User extends Authenticatable
             return false;
         }
 
-        $role = Role::query()->where('role_key', $roleKey)->first();
-        if (!$role) {
-            return false;
+        if ($this->resolvedPermissionKeys === null) {
+            $this->resolvedRoleModel = Role::query()->where('role_key', $roleKey)->first();
+
+            if (!$this->resolvedRoleModel) {
+                $this->resolvedPermissionKeys = [];
+                return false;
+            }
+
+            $this->resolvedPermissionKeys = $this->resolvedRoleModel
+                ->permissions()
+                ->pluck('permission_key')
+                ->all();
         }
 
-        return $role->permissions()
-            ->where('permission_key', $permissionKey)
-            ->exists();
+        return in_array($permissionKey, $this->resolvedPermissionKeys, true);
     }
 
-    /**
-     * Change password with current-password verification.
-     */
     public function updatePasswordChecked(string $currentPassword, string $newPassword): void
     {
         if (!Hash::check($currentPassword, $this->password)) {
@@ -152,10 +136,6 @@ class User extends Authenticatable
         $this->save();
     }
 
-    /**
-     * Override Laravel default reset password notification
-     * so branding matches your system name.
-     */
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new ResetPasswordNotification($token));

@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::table('clients', function (Blueprint $table) {
             if (!Schema::hasColumn('clients', 'birthday_sms_last_sent_at')) {
-                $table->dateTime('birthday_sms_last_sent_at')->nullable()->after('date_of_birth');
+                $table->dateTime('birthday_sms_last_sent_at')->nullable()->after('dob');
             }
         });
     }
