@@ -37,7 +37,7 @@ class PosController extends Controller
                 'a.service_id',
                 'a.start_at',
                 'a.end_at',
-                DB::raw("COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')), a.client_name) as client_name"),
+                DB::raw("COALESCE(TRIM(CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,''))), a.client_name) as client_name"),
                 DB::raw("sv.name as service_name"),
                 DB::raw("sv.price as sell_price"),
                 'vt.vat_percent',

@@ -75,6 +75,7 @@ class DashboardController extends Controller
             'canManage' => $canManageAppointments,
             'canPos' => $user && ($user->role === 'admin' || $user->hasPermission('cashier.manage')),
             'canClients' => $user && ($user->role === 'admin' || $user->hasPermission('client.manage')),
+            'canReports' => $user && ($user->role === 'admin' || $user->hasPermission('reports.view')),
         ]);
     }
 }
