@@ -19,6 +19,8 @@ if [[ "$MODE" == "full-reset" ]]; then
 else
   echo "== App-only deploy (DB/storage preserved) =="
   docker-compose build crm-app
+  docker-compose stop crm-app || true
+  docker-compose rm -sf crm-app || true
   docker-compose up -d --no-deps crm-app
 fi
 
