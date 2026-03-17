@@ -261,29 +261,16 @@ class ReportsController extends Controller
         $servicesVatPct = $subtotals->services_net > 0 ? ($subtotals->services_vat / $subtotals->services_net) * 100 : 0;
         $productsVatPct = $subtotals->products_net > 0 ? ($subtotals->products_vat / $subtotals->products_net) * 100 : 0;
 
-        $payments = [];
-        try {
-            $payments = DB::table('sale_payments as sp')
-                ->join('sales as s', 'sp.sale_id', '=', 's.id')
-                ->leftJoin('payment_methods as pm', 'sp.payment_method_id', '=', 'pm.id')
-                ->whereNull('s.voided_at')
-                ->whereBetween('s.created_at', [$fromDt, $toDt])
-                ->selectRaw("COALESCE(pm.name, CAST(sp.payment_method_id AS TEXT)) as payment_method, COALESCE(SUM(sp.amount),0) as amount")
-                ->groupBy('payment_method')
-                ->orderBy('payment_method')
-                ->get()
-                ->toArray();
-        } catch (\Throwable $e) {
-            $payments = DB::table('sale_payments as sp')
-                ->join('sales as s', 'sp.sale_id', '=', 's.id')
-                ->whereNull('s.voided_at')
-                ->whereBetween('s.created_at', [$fromDt, $toDt])
-                ->selectRaw("CAST(sp.payment_method_id AS TEXT) as payment_method, COALESCE(SUM(sp.amount),0) as amount")
-                ->groupBy('payment_method')
-                ->orderBy('payment_method')
-                ->get()
-                ->toArray();
-        }
+        $payments = DB::table('sale_payments as sp')
+            ->join('sales as s', 'sp.sale_id', '=', 's.id')
+            ->leftJoin('payment_methods as pm', 'sp.payment_method_id', '=', 'pm.id')
+            ->whereNull('s.voided_at')
+            ->whereBetween('s.created_at', [$fromDt, $toDt])
+            ->selectRaw("COALESCE(pm.name, CAST(sp.payment_method_id AS CHAR)) as payment_method, COALESCE(SUM(sp.amount),0) as amount")
+            ->groupBy('payment_method')
+            ->orderBy('payment_method')
+            ->get()
+            ->toArray();
 
         $company = [
             'company_name' => config('app.name', 'Company'),

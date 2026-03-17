@@ -37,7 +37,7 @@ class PosController extends Controller
                 'a.service_id',
                 'a.start_at',
                 'a.end_at',
-                DB::raw("COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')), a.client_name) as client_name"),
+                DB::raw("COALESCE(TRIM(CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,''))), a.client_name) as client_name"),
                 DB::raw("sv.name as service_name"),
                 DB::raw("sv.price as sell_price"),
                 'vt.vat_percent',
@@ -53,14 +53,14 @@ class PosController extends Controller
             ->values();
 
         $clients = DB::table('clients')
-            ->select('id', DB::raw("TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')) as name"))
+            ->select('id', DB::raw("TRIM(CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,''))) as name"))
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get();
 
         $staff = DB::table('staff as st')
             ->leftJoin('users as u', 'u.id', '=', 'st.user_id')
-            ->select('st.id', DB::raw("COALESCE(u.name, 'Staff #' || st.id) as name"))
+            ->select('st.id', DB::raw("COALESCE(u.name, CONCAT('Staff #', st.id)) as name"))
             ->orderBy('st.id')
             ->get();
 

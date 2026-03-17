@@ -145,6 +145,9 @@
                 @if($canClients)
                     <a href="{{ route('clients.index') }}" class="btn btn-outline-secondary mb-2 d-block"><i class="fas fa-users mr-1"></i> Open Clients</a>
                 @endif
+                @if($canReports)
+                    <a href="{{ route('reports.index', ['report' => 'z_reports']) }}" class="btn btn-outline-warning mb-2 d-block"><i class="fas fa-file-invoice mr-1"></i> Z Reports</a>
+                @endif
                 <a href="{{ route('calendar_view.index') }}" class="btn btn-outline-info d-block"><i class="fas fa-expand-arrows-alt mr-1"></i> Full Calendar</a>
             </div>
         </div>

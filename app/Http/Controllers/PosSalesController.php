@@ -17,6 +17,7 @@ class PosSalesController extends Controller
         $from   = trim((string)$request->query('from', ''));
         $to     = trim((string)$request->query('to', ''));
         $pmId   = $request->query('payment_method_id');
+        $staffId = (int)$request->query('staff_id', 0);
 
         $showVoided = (string)$request->query('show_voided', '0') === '1';
 
@@ -34,6 +35,11 @@ class PosSalesController extends Controller
         $hasVoidReason = Schema::hasColumn('sales', 'void_reason');
 
         $paymentMethods = DB::table('payment_methods')->select('id', 'name')->orderBy('name')->get();
+        $staffOptions = DB::table('staff as st')
+            ->leftJoin('users as u', 'u.id', '=', 'st.user_id')
+            ->select('st.id', DB::raw("COALESCE(u.name, CONCAT('Staff #', st.id)) as name"))
+            ->orderBy('name')
+            ->get();
 
         $select = [
             's.id',
@@ -108,6 +114,22 @@ class PosSalesController extends Controller
             });
         }
 
+        if ($staffId > 0) {
+            $q->where(function ($w) use ($staffId) {
+                $w->whereExists(function ($sub) use ($staffId) {
+                    $sub->select(DB::raw(1))
+                        ->from('sale_services as ssx')
+                        ->whereRaw('ssx.sale_id = s.id')
+                        ->where('ssx.staff_id', $staffId);
+                })->orWhereExists(function ($sub) use ($staffId) {
+                    $sub->select(DB::raw(1))
+                        ->from('sale_products as spx')
+                        ->whereRaw('spx.sale_id = s.id')
+                        ->where('spx.staff_id', $staffId);
+                });
+            });
+        }
+
         if ($hasSaleDate) {
             $q->orderByDesc('s.sale_date');
         } elseif ($hasCreatedAt) {
@@ -158,7 +180,7 @@ class PosSalesController extends Controller
                 ->groupBy('sale_id');
         }
 
-        $sales->getCollection()->transform(function ($s) use ($hasSaleDate, $hasCreatedAt, $hasVoidedAt) {
+        $sales->getCollection()->transform(function ($s) use ($hasSaleDate, $hasCreatedAt, $hasVoidedAt, $paymentsBySale) {
             $manualName = trim(($s->manual_first ?? '') . ' ' . ($s->manual_last ?? ''));
             $apptName   = trim(($s->appt_first ?? '') . ' ' . ($s->appt_last ?? ''));
             $fallback   = (string)($s->appt_client_fallback ?? '');
@@ -175,12 +197,21 @@ class PosSalesController extends Controller
 
             $s->is_voided = ($hasVoidedAt && !empty($s->voided_at));
 
+            $payments = $paymentsBySale[$s->id] ?? collect();
+            $paidAmount = (float) $payments->sum('amount');
+            $grandTotal = (float) ($s->grand_total ?? 0);
+            $balanceDue = max(0, round($grandTotal - $paidAmount, 2));
+            $s->paid_amount = $paidAmount;
+            $s->balance_due = $balanceDue;
+            $s->payment_status = $balanceDue <= 0.00001 ? 'paid' : 'partial';
+
             return $s;
         });
 
         return view('pos.sales', [
             'sales'              => $sales,
             'paymentMethods'     => $paymentMethods,
+            'staffOptions'       => $staffOptions,
             'serviceLinesBySale' => $serviceLinesBySale,
             'productLinesBySale' => $productLinesBySale,
             'paymentsBySale'     => $paymentsBySale,
@@ -191,6 +222,7 @@ class PosSalesController extends Controller
             'from'        => $from,
             'to'          => $to,
             'pmId'        => $pmId,
+            'staffId'     => $staffId,
             'limit'       => $limitRaw,
             'showVoided'  => $showVoided ? '1' : '0',
         ]);
