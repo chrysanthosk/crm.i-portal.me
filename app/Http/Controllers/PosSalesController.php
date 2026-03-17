@@ -180,7 +180,7 @@ class PosSalesController extends Controller
                 ->groupBy('sale_id');
         }
 
-        $sales->getCollection()->transform(function ($s) use ($hasSaleDate, $hasCreatedAt, $hasVoidedAt) {
+        $sales->getCollection()->transform(function ($s) use ($hasSaleDate, $hasCreatedAt, $hasVoidedAt, $paymentsBySale) {
             $manualName = trim(($s->manual_first ?? '') . ' ' . ($s->manual_last ?? ''));
             $apptName   = trim(($s->appt_first ?? '') . ' ' . ($s->appt_last ?? ''));
             $fallback   = (string)($s->appt_client_fallback ?? '');
@@ -196,6 +196,14 @@ class PosSalesController extends Controller
             $s->display_date = $date ? Carbon::parse($date) : now();
 
             $s->is_voided = ($hasVoidedAt && !empty($s->voided_at));
+
+            $payments = $paymentsBySale[$s->id] ?? collect();
+            $paidAmount = (float) $payments->sum('amount');
+            $grandTotal = (float) ($s->grand_total ?? 0);
+            $balanceDue = max(0, round($grandTotal - $paidAmount, 2));
+            $s->paid_amount = $paidAmount;
+            $s->balance_due = $balanceDue;
+            $s->payment_status = $balanceDue <= 0.00001 ? 'paid' : 'partial';
 
             return $s;
         });

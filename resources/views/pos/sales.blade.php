@@ -201,6 +201,14 @@
 
                 <td class="text-right">
                   € {{ number_format((float)$s->grand_total, 2) }}
+                  <div class="small mt-1">
+                    @if(($s->payment_status ?? '') === 'paid')
+                      <span class="badge badge-success">PAID</span>
+                    @else
+                      <span class="badge badge-warning">BALANCE DUE</span>
+                      <div class="text-muted mt-1">€ {{ number_format((float)($s->balance_due ?? 0), 2) }}</div>
+                    @endif
+                  </div>
                 </td>
 
                 <td>
@@ -210,6 +218,9 @@
                         {{ $p->method_name ?: '—' }} – €{{ number_format((float)$p->amount, 2) }}
                       </div>
                     @endforeach
+                    <div class="small text-muted mt-1">
+                      Paid total: €{{ number_format((float)($s->paid_amount ?? 0), 2) }}
+                    </div>
                   @else
                     <span class="text-muted">—</span>
                   @endif
@@ -222,7 +233,7 @@
                     class="btn btn-sm btn-secondary"
                     title="Re-print receipt"
                   >
-                    <i class="fas fa-print"></i>
+                    <i class="fas fa-print"></i> Receipt
                   </a>
 
                   @if(!$isVoided)
@@ -235,7 +246,7 @@
                       @csrf
                       <input type="hidden" name="void_reason" id="void_reason_{{ $sid }}" value="">
                       <button type="submit" class="btn btn-sm btn-warning" title="Void sale">
-                        <i class="fas fa-ban"></i>
+                        <i class="fas fa-ban"></i> Void
                       </button>
                     </form>
                   @endif
