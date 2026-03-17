@@ -109,7 +109,7 @@ class AppointmentController extends Controller
     public function create(Request $request)
     {
         $staff = Staff::query()->with('user:id,name')->orderBy('id')->get();
-        $clients = Client::query()->select('id', 'first_name', 'last_name', 'mobile', 'email', 'barcode')->orderBy('first_name')->orderBy('last_name')->get();
+        $clients = Client::query()->select('id', 'first_name', 'last_name', 'mobile', 'email')->orderBy('first_name')->orderBy('last_name')->get();
 
         $serviceCategories = ServiceCategory::query()->orderBy('name')->get();
         $services = Service::query()->orderBy('name')->get();
@@ -142,7 +142,7 @@ class AppointmentController extends Controller
     public function edit(Request $request, Appointment $appointment)
     {
         $staff = Staff::query()->with('user:id,name')->orderBy('id')->get();
-        $clients = Client::query()->select('id', 'first_name', 'last_name', 'mobile', 'email', 'barcode')->orderBy('first_name')->orderBy('last_name')->get();
+        $clients = Client::query()->select('id', 'first_name', 'last_name', 'mobile', 'email')->orderBy('first_name')->orderBy('last_name')->get();
 
         $serviceCategories = ServiceCategory::query()->orderBy('name')->get();
         $services = Service::query()->orderBy('name')->get();

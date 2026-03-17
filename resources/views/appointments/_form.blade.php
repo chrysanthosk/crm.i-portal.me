@@ -73,7 +73,7 @@ if ($initialCategoryId === '' && $initialServiceId !== '') {
                         $barcode = $c->barcode ? " [{$c->barcode}]" : "";
                     @endphp
                     <option value="{{ $c->id }}" @selected((string)old('client_id', $a->client_id) === (string)$c->id)>
-                        {{ $name }}{$phone}{{ $barcode }}
+                        {{ $name }}{$phone}
                     </option>
                 @endforeach
             </select>
