@@ -49,8 +49,8 @@ class InitialSetupSeeder extends Seeder
             $permIds[] = $perm->id;
         }
 
-        $adminRole->permissions()->syncWithoutDetaching($permIds);
-        $ownerRole->permissions()->syncWithoutDetaching($permIds);
+        $adminRole->permissions()->syncWithoutDetaching(\App\Models\Permission::pluck('id')->all());
+        $ownerRole->permissions()->syncWithoutDetaching(\App\Models\Permission::pluck('id')->all());
         $receptionRole->permissions()->syncWithoutDetaching(
             Permission::query()->whereIn('permission_key', [
                 'appointment.manage',
