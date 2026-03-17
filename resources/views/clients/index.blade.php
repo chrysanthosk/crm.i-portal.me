@@ -70,7 +70,13 @@
                         <td><span class="badge bg-secondary">{{ $c->gender }}</span></td>
                         <td>{{ optional($c->registration_date)->format('Y-m-d H:i') }}</td>
                         <td class="text-end">
-                            <a href="{{ route('clients.edit', $c) }}" class="btn btn-sm btn-outline-primary">
+                            @if(Auth::user() && (Auth::user()->role === 'admin' || Auth::user()->hasPermission('appointment.manage')))
+                                <a href="{{ route('appointments.create') }}?client_id={{ $c->id }}" class="btn btn-sm btn-outline-success" title="Add Appointment">
+                                    <i class="fas fa-calendar-plus"></i>
+                                </a>
+                            @endif
+
+                            <a href="{{ route('clients.edit', $c) }}" class="btn btn-sm btn-outline-primary" title="Edit">
                                 <i class="fas fa-edit"></i>
                             </a>
 
@@ -79,7 +85,7 @@
                                   onsubmit="return confirm('Delete this client?');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>

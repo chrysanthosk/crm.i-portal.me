@@ -61,45 +61,47 @@ if ($initialCategoryId === '' && $initialServiceId !== '') {
                    value="{{ old('end_at', $dtLocal($a->end_at)) }}" required>
         </div>
 
-        <div class="col-md-6 mb-3">
-            <label class="form-label">Existing Client (optional)</label>
-            <select name="client_id" class="form-control select2">
-                <option value="">— New client —</option>
+        <div class="col-12 mb-3">
+            <label class="form-label text-primary"><i class="fas fa-user mr-1"></i> Client Selection</label>
+            <select name="client_id" class="form-control select2" id="client_select">
+                <option value="">— Create New Client —</option>
                 @foreach($clients as $c)
                     @php
-                        $label = trim(($c->first_name ?? '').' '.($c->last_name ?? ''));
-                        $label = $label !== '' ? $label : ($c->email ?? 'Client');
+                        $name = trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? ''));
+                        $name = $name !== '' ? $name : ($c->email ?? 'Unknown Client');
+                        $phone = $c->mobile ? " ({$c->mobile})" : "";
+                        $barcode = $c->barcode ? " [{$c->barcode}]" : "";
                     @endphp
                     <option value="{{ $c->id }}" @selected((string)old('client_id', $a->client_id) === (string)$c->id)>
-                        {{ $label }} — {{ $c->mobile }}
+                        {{ $name }}{$phone}{{ $barcode }}
                     </option>
                 @endforeach
             </select>
-
             <div class="existing-client-hint text-muted small mt-1" style="display:none;">
-                Existing client selected — new-client fields are ignored.
+                <i class="fas fa-check-circle text-success"></i> Existing client selected. New client details below will be ignored.
             </div>
         </div>
 
-        <div class="col-md-3 mb-3 new-client-fields">
-            <label class="form-label">New Client First Name</label>
-            <input type="text" name="client_first_name" class="form-control"
-                   value="{{ old('client_first_name') }}" maxlength="100">
-            @error('client_first_name') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
-        </div>
-
-        <div class="col-md-3 mb-3 new-client-fields">
-            <label class="form-label">New Client Last Name</label>
-            <input type="text" name="client_last_name" class="form-control"
-                   value="{{ old('client_last_name') }}" maxlength="100">
-            @error('client_last_name') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
-        </div>
-
-        <div class="col-md-3 mb-3 new-client-fields">
-            <label class="form-label">New Client Phone</label>
-            <input type="text" name="client_phone" class="form-control"
-                   value="{{ old('client_phone') }}" maxlength="20">
-            @error('client_phone') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+        <div class="col-12 mb-3 new-client-fields">
+            <div class="card bg-light border-0 shadow-none mb-0">
+                <div class="card-body p-3">
+                    <strong class="d-block mb-2 text-primary"><i class="fas fa-user-plus mr-1"></i> New Client Details</strong>
+                    <div class="row">
+                        <div class="col-sm-4 mb-2">
+                            <input type="text" name="client_first_name" class="form-control" placeholder="First Name *" value="{{ old('client_first_name') }}" maxlength="100">
+                            @error('client_first_name') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-sm-4 mb-2">
+                            <input type="text" name="client_last_name" class="form-control" placeholder="Last Name *" value="{{ old('client_last_name') }}" maxlength="100">
+                            @error('client_last_name') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-sm-4 mb-2">
+                            <input type="text" name="client_phone" class="form-control" placeholder="Mobile Phone (Optional)" value="{{ old('client_phone') }}" maxlength="20">
+                            @error('client_phone') <div class="text-danger small mt-1">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {{-- ✅ Service Category --}}
