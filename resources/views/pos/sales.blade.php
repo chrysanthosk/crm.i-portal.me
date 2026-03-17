@@ -22,14 +22,41 @@
     <div class="alert alert-danger">{{ session('error') }}</div>
   @endif
 
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="card card-outline card-primary h-100">
+        <div class="card-body">
+          <div class="text-muted small">Visible sales</div>
+          <div class="h3 mb-0">{{ number_format((int)$summaryCount) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mt-3 mt-md-0">
+      <div class="card card-outline card-success h-100">
+        <div class="card-body">
+          <div class="text-muted small">Visible gross total</div>
+          <div class="h3 mb-0">€ {{ number_format((float)$summaryGross, 2) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mt-3 mt-md-0">
+      <div class="card card-outline card-secondary h-100">
+        <div class="card-body">
+          <div class="text-muted small">Voided in current result</div>
+          <div class="h3 mb-0">{{ number_format((int)$summaryVoided) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="card mb-3">
     <div class="card-header"><strong>Filters</strong></div>
     <div class="card-body">
       <form method="GET" action="{{ route('pos.sales.index') }}">
         <div class="row">
           <div class="col-md-3">
-            <label>Search client</label>
-            <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Client name...">
+            <label>Search client / sale ID</label>
+            <input type="text" name="search" class="form-control" value="{{ $search }}" placeholder="Client name or sale ID...">
           </div>
 
           <div class="col-md-2">
@@ -126,6 +153,9 @@
                   {{ $sid }}
                   @if($isVoided)
                     <div><span class="badge badge-secondary">VOIDED</span></div>
+                    @if(!empty($s->void_reason))
+                      <div class="small text-muted mt-1">{{ $s->void_reason }}</div>
+                    @endif
                   @endif
                 </td>
                 <td>{{ $s->display_date->format('Y-m-d H:i') }}</td>

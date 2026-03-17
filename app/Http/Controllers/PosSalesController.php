@@ -68,6 +68,9 @@ class PosSalesController extends Controller
         if ($search !== '') {
             $q->where(function ($w) use ($search) {
                 $like = '%' . $search . '%';
+                if (ctype_digit($search)) {
+                    $w->orWhere('s.id', (int)$search);
+                }
                 $w->whereRaw("TRIM(COALESCE(mc.first_name,'') || ' ' || COALESCE(mc.last_name,'')) LIKE ?", [$like])
                   ->orWhereRaw("TRIM(COALESCE(ac.first_name,'') || ' ' || COALESCE(ac.last_name,'')) LIKE ?", [$like])
                   ->orWhere('a.client_name', 'like', $like);
@@ -111,6 +114,14 @@ class PosSalesController extends Controller
             $q->orderByDesc('s.created_at');
         } else {
             $q->orderByDesc('s.id');
+        }
+
+        $summaryBase = clone $q;
+        $summaryCount = (clone $summaryBase)->count('s.id');
+        $summaryGross = (float) ((clone $summaryBase)->sum('s.grand_total'));
+        $summaryVoided = 0;
+        if ($hasVoidedAt) {
+            $summaryVoided = (clone $summaryBase)->whereNotNull('s.voided_at')->count('s.id');
         }
 
         $sales = $q->paginate($perPage)->appends($request->query());
@@ -173,6 +184,9 @@ class PosSalesController extends Controller
             'serviceLinesBySale' => $serviceLinesBySale,
             'productLinesBySale' => $productLinesBySale,
             'paymentsBySale'     => $paymentsBySale,
+            'summaryCount'       => $summaryCount,
+            'summaryGross'       => $summaryGross,
+            'summaryVoided'      => $summaryVoided,
             'search'      => $search,
             'from'        => $from,
             'to'          => $to,

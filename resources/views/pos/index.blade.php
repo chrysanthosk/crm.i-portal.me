@@ -84,6 +84,11 @@
 <div class="container-fluid">
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h1 class="h3 mb-0">Point of Sale</h1>
+    <div>
+      <a href="{{ route('pos.sales.index') }}" class="btn btn-outline-primary">
+        <i class="fas fa-history mr-1"></i> Sales History
+      </a>
+    </div>
   </div>
 
   <div class="row">
