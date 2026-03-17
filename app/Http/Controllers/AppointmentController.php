@@ -187,7 +187,13 @@ class AppointmentController extends Controller
 
         $appointment = Appointment::create($data);
 
-        return response()->json(['success' => true, 'id' => $appointment->id]);
+        if ($request->ajax() || $request->wantsJson() || $request->boolean('modal')) {
+            return response()->json(['success' => true, 'id' => $appointment->id]);
+        }
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', 'Appointment created successfully.');
     }
 
     public function update(Request $request, Appointment $appointment)
@@ -210,7 +216,13 @@ class AppointmentController extends Controller
 
         $appointment->update($data);
 
-        return response()->json(['success' => true]);
+        if ($request->ajax() || $request->wantsJson() || $request->boolean('modal')) {
+            return response()->json(['success' => true]);
+        }
+
+        return redirect()
+            ->route('appointments.index')
+            ->with('success', 'Appointment updated successfully.');
     }
 
     public function destroy(Appointment $appointment)

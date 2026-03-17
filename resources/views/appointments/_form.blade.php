@@ -69,11 +69,10 @@ if ($initialCategoryId === '' && $initialServiceId !== '') {
                     @php
                         $name = trim(($c->first_name ?? '') . ' ' . ($c->last_name ?? ''));
                         $name = $name !== '' ? $name : ($c->email ?? 'Unknown Client');
-                        $phone = $c->mobile ? " ({$c->mobile})" : "";
-                        $barcode = $c->barcode ? " [{$c->barcode}]" : "";
+                        $phone = $c->mobile ? ' (' . $c->mobile . ')' : '';
                     @endphp
                     <option value="{{ $c->id }}" @selected((string)old('client_id', $a->client_id) === (string)$c->id)>
-                        {{ $name }}{$phone}
+                        {{ $name }}{{ $phone }}
                     </option>
                 @endforeach
             </select>
