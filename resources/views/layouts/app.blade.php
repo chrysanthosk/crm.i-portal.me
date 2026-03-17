@@ -153,349 +153,298 @@
 
         <div class="sidebar">
             <nav class="mt-2">
-                <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+
+                    {{-- =====================================
+                         GROUP: OPERATIONS
+                         ===================================== --}}
+                    <li class="nav-header">OPERATIONS</li>
 
                     <li class="nav-item">
-                        <a href="{{ route('dashboard') }}"
-                           class="nav-link {{ $isDashboard ? 'active' : '' }}">
+                        <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                             <i class="nav-icon fas fa-tachometer-alt"></i>
                             <p>Dashboard</p>
                         </a>
                     </li>
 
-                    {{-- ✅ Calendar View under Dashboard --}}
                     @if($canCalendarView)
                         <li class="nav-item">
-                            <a href="{{ route('calendar_view.index') }}"
-                               class="nav-link {{ $isCalendarView ? 'active' : '' }}">
+                            <a href="{{ route('calendar_view.index') }}" class="nav-link {{ request()->routeIs('calendar_view.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-calendar-alt"></i>
-                                <p>Calendar View</p>
+                                <p>Calendar</p>
                             </a>
                         </li>
                     @endif
 
-                    {{-- Appointments --}}
                     @if($canAppointments)
                         <li class="nav-item">
-                            <a href="{{ route('appointments.index') }}"
-                               class="nav-link {{ $isAppointments ? 'active' : '' }}">
+                            <a href="{{ route('appointments.index') }}" class="nav-link {{ request()->routeIs('appointments.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-calendar-check"></i>
                                 <p>Appointments</p>
                             </a>
                         </li>
                     @endif
 
-                    {{-- Services --}}
-                    @if($canServices)
-                        <li class="nav-item">
-                            <a href="{{ route('services.index') }}"
-                               class="nav-link {{ $isServicesRoute ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-concierge-bell"></i>
-                                <p>Services</p>
-                            </a>
-                        </li>
-                    @endif
-
-                    {{-- Products --}}
-                    @if($canProducts)
-                        <li class="nav-item">
-                            <a href="{{ route('products.index') }}"
-                               class="nav-link {{ $isProductsRoute ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-boxes"></i>
-                                <p>Products</p>
-                            </a>
-                        </li>
-                    @endif
-
-                    {{-- Inventory --}}
-                    @if($canInventory)
-                        <li class="nav-item">
-                            <a href="{{ route('inventory.index') }}"
-                               class="nav-link {{ $isInventoryRoute ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-warehouse"></i>
-                                <p>Inventory</p>
-                            </a>
-                        </li>
-                    @endif
-
-                    {{-- Clients --}}
                     @if($canClients)
                         <li class="nav-item">
-                            <a href="{{ route('clients.index') }}"
-                               class="nav-link {{ $isClientsRoute ? 'active' : '' }}">
+                            <a href="{{ route('clients.index') }}" class="nav-link {{ request()->routeIs('clients.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-user-tag"></i>
                                 <p>Clients</p>
                             </a>
                         </li>
                     @endif
 
-                    {{-- Staff --}}
-                    @if($canStaff)
+                    @if($canPos)
+                        <li class="nav-item has-treeview {{ request()->routeIs('pos.*') ? 'menu-open' : '' }}">
+                            <a href="#" class="nav-link {{ request()->routeIs('pos.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-cash-register"></i>
+                                <p>Cashier / Sales<i class="right fas fa-angle-left"></i></p>
+                            </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="{{ route('pos.index') }}" class="nav-link {{ request()->routeIs('pos.index') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i><p>New Sale</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('pos.sales.index') }}" class="nav-link {{ request()->routeIs('pos.sales.*') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i><p>Sales History</p>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+                    @endif
+
+                    {{-- =====================================
+                         GROUP: CATALOG
+                         ===================================== --}}
+                    @if($canServices || $canProducts || $canInventory || $canSuppliers)
+                    <li class="nav-header">CATALOG</li>
+
+                    @if($canServices)
                         <li class="nav-item">
-                            <a href="{{ route('staff.index') }}"
-                               class="nav-link {{ $isStaffRoute ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-user-nurse"></i>
-                                <p>Staff</p>
+                            <a href="{{ route('services.index') }}" class="nav-link {{ request()->routeIs('services.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-concierge-bell"></i>
+                                <p>Services</p>
+                            </a>
+                        </li>
+                        @if($canSettings)
+                        <li class="nav-item">
+                            <a href="{{ route('settings.service-categories.index') }}" class="nav-link {{ request()->routeIs('settings.service-categories.*') ? 'active' : '' }}">
+                                <i class="far fa-circle nav-icon"></i><p>Service Categories</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('settings.vat-types.index') }}" class="nav-link {{ request()->routeIs('settings.vat-types.*') ? 'active' : '' }}">
+                                <i class="far fa-circle nav-icon"></i><p>VAT Types</p>
+                            </a>
+                        </li>
+                        @endif
+                    @endif
+
+                    @if($canProducts)
+                        <li class="nav-item">
+                            <a href="{{ route('products.index') }}" class="nav-link {{ request()->routeIs('products.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-boxes"></i>
+                                <p>Products</p>
+                            </a>
+                        </li>
+                        @if($canSettings)
+                        <li class="nav-item">
+                            <a href="{{ route('settings.product-categories.index') }}" class="nav-link {{ request()->routeIs('settings.product-categories.*') ? 'active' : '' }}">
+                                <i class="far fa-circle nav-icon"></i><p>Product Categories</p>
+                            </a>
+                        </li>
+                        @endif
+                    @endif
+
+                    @if($canInventory)
+                        <li class="nav-item">
+                            <a href="{{ route('inventory.index') }}" class="nav-link {{ request()->routeIs('inventory.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-warehouse"></i>
+                                <p>Inventory</p>
                             </a>
                         </li>
                     @endif
 
-                    {{-- Suppliers --}}
                     @if($canSuppliers)
                         <li class="nav-item">
-                            <a href="{{ route('suppliers.index') }}"
-                               class="nav-link {{ $isSuppliersRoute ? 'active' : '' }}">
+                            <a href="{{ route('suppliers.index') }}" class="nav-link {{ request()->routeIs('suppliers.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-truck"></i>
                                 <p>Suppliers</p>
                             </a>
                         </li>
                     @endif
 
-                    {{-- ✅ Bulk SMS (Send Now) - under Suppliers --}}
-                    @if($canBulkSms)
+                    @if($canSettings && $canPaymentMethods)
                         <li class="nav-item">
-                            <a href="{{ route('bulk_sms.index') }}"
-                               class="nav-link {{ $isBulkSmsRoute ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-sms"></i>
-                                <p>Bulk SMS</p>
+                            <a href="{{ route('settings.payment-methods.index') }}" class="nav-link {{ request()->routeIs('settings.payment-methods.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-credit-card"></i><p>Payment Methods</p>
                             </a>
                         </li>
                     @endif
 
-                    {{-- POS --}}
-                    @if($canPos)
-                        <li class="nav-item has-treeview {{ $isPosRoute ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ $isPosRoute ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-cash-register"></i>
-                                <p>
-                                    POS
-                                    <i class="right fas fa-angle-left"></i>
-                                </p>
-                            </a>
-
-                            <ul class="nav nav-treeview">
-                                <li class="nav-item">
-                                    <a href="{{ route('pos.index') }}"
-                                       class="nav-link {{ request()->routeIs('pos.index') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>New Sale</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a href="{{ route('pos.sales.index') }}"
-                                       class="nav-link {{ request()->routeIs('pos.sales.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Sales</p>
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
                     @endif
 
-                    {{-- Reports --}}
+                    {{-- =====================================
+                         GROUP: REPORTS
+                         ===================================== --}}
+                    @if($canAnyReports || $canFinancial || $canStaffPerformance)
+                    <li class="nav-header">REPORTS</li>
+
                     @if($canAnyReports)
-                        <li class="nav-item has-treeview {{ $isReportsRoute ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ $isReportsRoute ? 'active' : '' }}">
+                        <li class="nav-item has-treeview {{ request()->routeIs('reports.index', 'reports.analytics', 'reports.bi', 'reports.staff_performance') ? 'menu-open' : '' }}">
+                            <a href="#" class="nav-link {{ request()->routeIs('reports.index', 'reports.analytics', 'reports.bi', 'reports.staff_performance') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-chart-bar"></i>
-                                <p>
-                                    Reports
-                                    <i class="right fas fa-angle-left"></i>
-                                </p>
+                                <p>General Reports<i class="right fas fa-angle-left"></i></p>
                             </a>
-
                             <ul class="nav nav-treeview">
-
-                                @if($canAnalytics)
-                                    <li class="nav-item">
-                                        <a href="{{ route('reports.analytics') }}"
-                                           class="nav-link {{ request()->routeIs('reports.analytics') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i>
-                                            <p>Analytics</p>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if($canBiReports)
-                                    <li class="nav-item">
-                                        <a href="{{ route('reports.bi') }}"
-                                           class="nav-link {{ request()->routeIs('reports.bi') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i>
-                                            <p>BI Dashboard</p>
-                                        </a>
-                                    </li>
-                                @endif
-
                                 @if($canReportsPage)
                                     <li class="nav-item">
-                                        <a href="{{ route('reports.index') }}"
-                                           class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i>
-                                            <p>Operational Reports</p>
+                                        <a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}">
+                                            <i class="far fa-circle nav-icon"></i><p>Operational Reports</p>
                                         </a>
                                     </li>
                                 @endif
-
-                                {{-- ✅ Staff Performance --}}
+                                @if($canAnalytics)
+                                    <li class="nav-item">
+                                        <a href="{{ route('reports.analytics') }}" class="nav-link {{ request()->routeIs('reports.analytics') ? 'active' : '' }}">
+                                            <i class="far fa-circle nav-icon"></i><p>Analytics</p>
+                                        </a>
+                                    </li>
+                                @endif
+                                @if($canBiReports)
+                                    <li class="nav-item">
+                                        <a href="{{ route('reports.bi') }}" class="nav-link {{ request()->routeIs('reports.bi') ? 'active' : '' }}">
+                                            <i class="far fa-circle nav-icon"></i><p>BI Dashboard</p>
+                                        </a>
+                                    </li>
+                                @endif
                                 @if($canStaffPerformance)
                                     <li class="nav-item">
-                                        <a href="{{ route('reports.staff_performance') }}"
-                                           class="nav-link {{ $isStaffPerfRoute ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i>
-                                            <p>Staff Performance</p>
+                                        <a href="{{ route('reports.staff_performance') }}" class="nav-link {{ request()->routeIs('reports.staff_performance') ? 'active' : '' }}">
+                                            <i class="far fa-circle nav-icon"></i><p>Staff Performance</p>
                                         </a>
                                     </li>
                                 @endif
-
                             </ul>
                         </li>
                     @endif
 
-                    {{-- Financial --}}
                     @if($canFinancial)
-                        <li class="nav-item has-treeview {{ $isFinancialRoute ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ $isFinancialRoute ? 'active' : '' }}">
+                        <li class="nav-item has-treeview {{ request()->routeIs('reports.financial.*') ? 'menu-open' : '' }}">
+                            <a href="#" class="nav-link {{ request()->routeIs('reports.financial.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-coins"></i>
-                                <p>
-                                    Financial
-                                    <i class="right fas fa-angle-left"></i>
-                                </p>
+                                <p>Financial<i class="right fas fa-angle-left"></i></p>
                             </a>
-
                             <ul class="nav nav-treeview">
                                 <li class="nav-item">
-                                    <a href="{{ route('reports.financial.income') }}"
-                                       class="nav-link {{ request()->routeIs('reports.financial.income') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Income</p>
+                                    <a href="{{ route('reports.financial.income') }}" class="nav-link {{ request()->routeIs('reports.financial.income') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i><p>Income</p>
                                     </a>
                                 </li>
-
                                 <li class="nav-item">
-                                    <a href="{{ route('reports.financial.expenses') }}"
-                                       class="nav-link {{ request()->routeIs('reports.financial.expenses') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i>
-                                        <p>Expenses</p>
+                                    <a href="{{ route('reports.financial.expenses') }}" class="nav-link {{ request()->routeIs('reports.financial.expenses') ? 'active' : '' }}">
+                                        <i class="far fa-circle nav-icon"></i><p>Expenses</p>
                                     </a>
                                 </li>
                             </ul>
                         </li>
                     @endif
+                    @endif
 
-                    {{-- Settings --}}
-                    @if($canSettings)
-                        <li class="nav-header">SETTINGS</li>
+                    {{-- =====================================
+                         GROUP: COMMUNICATIONS
+                         ===================================== --}}
+                    @if($canBulkSms || ($canSettings && $canSms))
+                    <li class="nav-header">COMMUNICATIONS</li>
 
-                        <li class="nav-item has-treeview {{ $isSettingsRoute ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ $isSettingsRoute ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-cogs"></i>
-                                <p>Settings<i class="right fas fa-angle-left"></i></p>
+                    @if($canBulkSms)
+                        <li class="nav-item">
+                            <a href="{{ route('bulk_sms.index') }}" class="nav-link {{ request()->routeIs('bulk_sms.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-sms"></i><p>Bulk SMS</p>
                             </a>
-
-                            <ul class="nav nav-treeview">
-
-                                <li class="nav-item">
-                                    <a href="{{ route('settings.users.index') }}"
-                                       class="nav-link {{ request()->routeIs('settings.users.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i><p>Users</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a href="{{ route('settings.roles.index') }}"
-                                       class="nav-link {{ request()->routeIs('settings.roles.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i><p>Roles</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a href="{{ route('settings.service-categories.index') }}"
-                                       class="nav-link {{ request()->routeIs('settings.service-categories.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i><p>Service Categories</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a href="{{ route('settings.vat-types.index') }}"
-                                       class="nav-link {{ request()->routeIs('settings.vat-types.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i><p>VAT Types</p>
-                                    </a>
-                                </li>
-
-                                @if($canProducts)
-                                    <li class="nav-item">
-                                        <a href="{{ route('settings.product-categories.index') }}"
-                                           class="nav-link {{ request()->routeIs('settings.product-categories.*') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i><p>Product Categories</p>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if($canPaymentMethods)
-                                    <li class="nav-item">
-                                        <a href="{{ route('settings.payment-methods.index') }}"
-                                           class="nav-link {{ request()->routeIs('settings.payment-methods.*') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i><p>Payment Methods</p>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if($canLoyalty)
-                                    <li class="nav-item">
-                                        <a href="{{ route('settings.loyalty.index') }}"
-                                           class="nav-link {{ request()->routeIs('settings.loyalty.*') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i><p>Loyalty &amp; Rewards</p>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if($canGdpr)
-                                    <li class="nav-item">
-                                        <a href="{{ route('settings.gdpr.index') }}"
-                                           class="nav-link {{ request()->routeIs('settings.gdpr.index') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i><p>GDPR Data Purge</p>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                @if($canSms)
-                                    <li class="nav-item">
-                                        <a href="{{ route('settings.sms.edit') }}"
-                                           class="nav-link {{ request()->routeIs('settings.sms.edit') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i><p>SMS Settings</p>
-                                        </a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a href="{{ route('settings.sms.logs') }}"
-                                           class="nav-link {{ request()->routeIs('settings.sms.logs') ? 'active' : '' }}">
-                                            <i class="far fa-circle nav-icon"></i><p>SMS Logs</p>
-                                        </a>
-                                    </li>
-                                @endif
-
-                                <li class="nav-item">
-                                    <a href="{{ route('settings.smtp.edit') }}"
-                                       class="nav-link {{ request()->routeIs('settings.smtp.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i><p>SMTP</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a href="{{ route('settings.config.edit') }}"
-                                       class="nav-link {{ request()->routeIs('settings.config.*') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i><p>Configuration</p>
-                                    </a>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a href="{{ route('settings.audit.index') }}"
-                                       class="nav-link {{ request()->routeIs('settings.audit.index') ? 'active' : '' }}">
-                                        <i class="far fa-circle nav-icon"></i><p>Audit Log</p>
-                                    </a>
-                                </li>
-
-                            </ul>
                         </li>
+                    @endif
+
+                    @if($canSettings && $canSms)
+                        <li class="nav-item">
+                            <a href="{{ route('settings.sms.edit') }}" class="nav-link {{ request()->routeIs('settings.sms.edit') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-comment-dots"></i><p>SMS Settings</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('settings.sms.logs') }}" class="nav-link {{ request()->routeIs('settings.sms.logs') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-history"></i><p>SMS Logs</p>
+                            </a>
+                        </li>
+                    @endif
+
+                    @if($canSettings)
+                        <li class="nav-item">
+                            <a href="{{ route('settings.smtp.edit') }}" class="nav-link {{ request()->routeIs('settings.smtp.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-envelope"></i><p>SMTP Settings</p>
+                            </a>
+                        </li>
+                    @endif
+
+                    @endif
+
+                    {{-- =====================================
+                         GROUP: ADMIN / SETTINGS
+                         ===================================== --}}
+                    @if($canSettings || $canStaff)
+                    <li class="nav-header">ADMIN & SETTINGS</li>
+
+                    @if($canStaff)
+                        <li class="nav-item">
+                            <a href="{{ route('staff.index') }}" class="nav-link {{ request()->routeIs('staff.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-user-nurse"></i><p>Staff Directory</p>
+                            </a>
+                        </li>
+                    @endif
+
+                    @if($canSettings)
+                        <li class="nav-item">
+                            <a href="{{ route('settings.users.index') }}" class="nav-link {{ request()->routeIs('settings.users.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-users"></i><p>System Users</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="{{ route('settings.roles.index') }}" class="nav-link {{ request()->routeIs('settings.roles.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-user-shield"></i><p>Roles & Permissions</p>
+                            </a>
+                        </li>
+
+                        @if($canLoyalty)
+                            <li class="nav-item">
+                                <a href="{{ route('settings.loyalty.index') }}" class="nav-link {{ request()->routeIs('settings.loyalty.*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-star"></i><p>Loyalty & Rewards</p>
+                                </a>
+                            </li>
+                        @endif
+
+                        @if($canGdpr)
+                            <li class="nav-item">
+                                <a href="{{ route('settings.gdpr.index') }}" class="nav-link {{ request()->routeIs('settings.gdpr.*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-user-lock"></i><p>GDPR Data Purge</p>
+                                </a>
+                            </li>
+                        @endif
+
+                        <li class="nav-item">
+                            <a href="{{ route('settings.config.edit') }}" class="nav-link {{ request()->routeIs('settings.config.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-cogs"></i><p>System Config</p>
+                            </a>
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="{{ route('settings.audit.index') }}" class="nav-link {{ request()->routeIs('settings.audit.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-list-alt"></i><p>Audit Log</p>
+                            </a>
+                        </li>
+                    @endif
                     @endif
 
                 </ul>
