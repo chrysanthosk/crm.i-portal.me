@@ -29,7 +29,7 @@ class DashboardController extends Controller
             ->count();
 
         $todaySales = (float) DB::table('sales')
-            ->whereBetween(DB::raw('COALESCE(sale_date, created_at)'), [$start, $end])
+            ->whereBetween(\Illuminate\Support\Facades\Schema::hasColumn('sales', 'sale_date') ? 'sale_date' : 'created_at', [$start, $end])
             ->sum('grand_total');
 
         $stats = [
