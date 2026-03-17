@@ -109,15 +109,20 @@ class AppointmentController extends Controller
     public function create(Request $request)
     {
         $staff = Staff::query()->with('user:id,name')->orderBy('id')->get();
-        $clients = Client::query()->orderBy('first_name')->orderBy('last_name')->get();
+        $clients = Client::query()->select('id', 'first_name', 'last_name', 'mobile', 'email')->orderBy('first_name')->orderBy('last_name')->get();
 
         $serviceCategories = ServiceCategory::query()->orderBy('name')->get();
         $services = Service::query()->orderBy('name')->get();
 
+        $appointment = new Appointment();
+        if ($request->has('client_id')) {
+            $appointment->client_id = (int) $request->input('client_id');
+        }
+
         if ($request->boolean('modal')) {
             return view('appointments._form', [
                 'mode' => 'create',
-                'appointment' => new Appointment(),
+                'appointment' => $appointment,
                 'staff' => $staff,
                 'clients' => $clients,
                 'serviceCategories' => $serviceCategories,
@@ -126,6 +131,7 @@ class AppointmentController extends Controller
         }
 
         return view('appointments.create', [
+            'appointment' => $appointment,
             'staff' => $staff,
             'clients' => $clients,
             'serviceCategories' => $serviceCategories,
@@ -136,7 +142,7 @@ class AppointmentController extends Controller
     public function edit(Request $request, Appointment $appointment)
     {
         $staff = Staff::query()->with('user:id,name')->orderBy('id')->get();
-        $clients = Client::query()->orderBy('first_name')->orderBy('last_name')->get();
+        $clients = Client::query()->select('id', 'first_name', 'last_name', 'mobile', 'email')->orderBy('first_name')->orderBy('last_name')->get();
 
         $serviceCategories = ServiceCategory::query()->orderBy('name')->get();
         $services = Service::query()->orderBy('name')->get();
@@ -181,7 +187,13 @@ class AppointmentController extends Controller
 
         $appointment = Appointment::create($data);
 
-        return response()->json(['success' => true, 'id' => $appointment->id]);
+        if ($request->ajax() || $request->wantsJson() || $request->boolean('modal')) {
+            return response()->json(['success' => true, 'id' => $appointment->id]);
+        }
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', 'Appointment created successfully.');
     }
 
     public function update(Request $request, Appointment $appointment)
@@ -204,7 +216,13 @@ class AppointmentController extends Controller
 
         $appointment->update($data);
 
-        return response()->json(['success' => true]);
+        if ($request->ajax() || $request->wantsJson() || $request->boolean('modal')) {
+            return response()->json(['success' => true]);
+        }
+
+        return redirect()
+            ->route('appointments.index')
+            ->with('success', 'Appointment updated successfully.');
     }
 
     public function destroy(Appointment $appointment)

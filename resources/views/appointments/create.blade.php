@@ -16,7 +16,7 @@
         <div class="card-body">
             @include('appointments._form', [
             'mode' => 'create',
-            'appointment' => new \App\Models\Appointment(),
+            'appointment' => $appointment,
             ])
         </div>
     </div>

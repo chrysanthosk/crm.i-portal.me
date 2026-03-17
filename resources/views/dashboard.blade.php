@@ -137,7 +137,7 @@
             <div class="card-header"><strong>Quick Actions</strong></div>
             <div class="card-body d-grid gap-2">
                 @if($canManage)
-                    <a href="{{ route('appointments.create') }}" class="btn btn-success mb-2 d-block"><i class="fas fa-calendar-plus mr-1"></i> Add Appointment</a>
+                    <button type="button" class="btn btn-success mb-2 d-block js-open-add-appointment"><i class="fas fa-calendar-plus mr-1"></i> Add Appointment</button>
                 @endif
                 @if($canPos)
                     <a href="{{ route('pos.index') }}" class="btn btn-primary mb-2 d-block"><i class="fas fa-cash-register mr-1"></i> Open Cashier</a>
@@ -485,7 +485,7 @@
             });
     }
 
-    $('#btnAddAppt').on('click', function(){
+    $(document).on('click', '#btnAddAppt, .js-open-add-appointment', function(){
         if (!canManage) return;
         openCreateModal();
     });
