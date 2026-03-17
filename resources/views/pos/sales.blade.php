@@ -69,13 +69,25 @@
             <input type="date" name="to" class="form-control" value="{{ $to }}">
           </div>
 
-          <div class="col-md-3">
+          <div class="col-md-2">
             <label>Payment method</label>
             <select name="payment_method_id" class="form-control">
               <option value="">-- Any --</option>
               @foreach($paymentMethods as $pm)
                 <option value="{{ $pm->id }}" @selected((string)$pmId === (string)$pm->id)>
                   {{ $pm->name }}
+                </option>
+              @endforeach
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label>Staff</label>
+            <select name="staff_id" class="form-control">
+              <option value="0">-- Any --</option>
+              @foreach($staffOptions as $staff)
+                <option value="{{ $staff->id }}" @selected((int)$staffId === (int)$staff->id)>
+                  {{ $staff->name }}
                 </option>
               @endforeach
             </select>
