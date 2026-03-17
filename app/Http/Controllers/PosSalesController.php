@@ -37,7 +37,7 @@ class PosSalesController extends Controller
         $paymentMethods = DB::table('payment_methods')->select('id', 'name')->orderBy('name')->get();
         $staffOptions = DB::table('staff as st')
             ->leftJoin('users as u', 'u.id', '=', 'st.user_id')
-            ->select('st.id', DB::raw("COALESCE(u.name, 'Staff #' || st.id) as name"))
+            ->select('st.id', DB::raw("COALESCE(u.name, CONCAT('Staff #', st.id)) as name"))
             ->orderBy('name')
             ->get();
 
