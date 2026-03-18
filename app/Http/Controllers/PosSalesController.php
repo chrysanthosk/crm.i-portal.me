@@ -11,6 +11,20 @@ use Throwable;
 
 class PosSalesController extends Controller
 {
+    private function driver(): string
+    {
+        return (string) DB::getDriverName();
+    }
+
+    private function personNameExpr(string $first, string $last): string
+    {
+        if ($this->driver() === 'sqlite') {
+            return "TRIM(COALESCE({$first},'') || ' ' || COALESCE({$last},''))";
+        }
+
+        return "TRIM(CONCAT(COALESCE({$first},''), ' ', COALESCE({$last},'')))";
+    }
+
     public function index(Request $request)
     {
         $search = trim((string)$request->query('search', ''));
@@ -72,13 +86,16 @@ class PosSalesController extends Controller
         }
 
         if ($search !== '') {
-            $q->where(function ($w) use ($search) {
+            $manualClientNameExpr = $this->personNameExpr('mc.first_name', 'mc.last_name');
+            $appointmentClientNameExpr = $this->personNameExpr('ac.first_name', 'ac.last_name');
+
+            $q->where(function ($w) use ($search, $manualClientNameExpr, $appointmentClientNameExpr) {
                 $like = '%' . $search . '%';
                 if (ctype_digit($search)) {
                     $w->orWhere('s.id', (int)$search);
                 }
-                $w->whereRaw("TRIM(COALESCE(mc.first_name,'') || ' ' || COALESCE(mc.last_name,'')) LIKE ?", [$like])
-                  ->orWhereRaw("TRIM(COALESCE(ac.first_name,'') || ' ' || COALESCE(ac.last_name,'')) LIKE ?", [$like])
+                $w->whereRaw("{$manualClientNameExpr} LIKE ?", [$like])
+                  ->orWhereRaw("{$appointmentClientNameExpr} LIKE ?", [$like])
                   ->orWhere('a.client_name', 'like', $like);
             });
         }

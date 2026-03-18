@@ -153,6 +153,35 @@
 
         <div class="sidebar">
             <nav class="mt-2">
+                @php
+                    $catalogOpen = request()->routeIs(
+                        'services.*',
+                        'products.*',
+                        'inventory.*',
+                        'suppliers.*',
+                        'settings.service-categories.*',
+                        'settings.product-categories.*',
+                        'settings.vat-types.*',
+                        'settings.payment-methods.*'
+                    );
+
+                    $communicationsOpen = request()->routeIs(
+                        'bulk_sms.*',
+                        'settings.sms.*',
+                        'settings.smtp.*'
+                    );
+
+                    $adminSettingsOpen = request()->routeIs(
+                        'staff.*',
+                        'settings.users.*',
+                        'settings.roles.*',
+                        'settings.loyalty.*',
+                        'settings.gdpr.*',
+                        'settings.config.*',
+                        'settings.audit.*'
+                    );
+                @endphp
+
                 <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
 
                     {{-- =====================================
@@ -219,8 +248,12 @@
                          GROUP: CATALOG
                          ===================================== --}}
                     @if($canServices || $canProducts || $canInventory || $canSuppliers)
-                    <li class="nav-header">CATALOG</li>
-
+                    <li class="nav-item has-treeview {{ $catalogOpen ? 'menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $catalogOpen ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-box-open"></i>
+                            <p>Catalog<i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
                     @if($canServices)
                         <li class="nav-item">
                             <a href="{{ route('services.index') }}" class="nav-link {{ request()->routeIs('services.*') ? 'active' : '' }}">
@@ -283,7 +316,8 @@
                             </a>
                         </li>
                     @endif
-
+                        </ul>
+                    </li>
                     @endif
 
                     {{-- =====================================
@@ -357,8 +391,12 @@
                          GROUP: COMMUNICATIONS
                          ===================================== --}}
                     @if($canBulkSms || ($canSettings && $canSms))
-                    <li class="nav-header">COMMUNICATIONS</li>
-
+                    <li class="nav-item has-treeview {{ $communicationsOpen ? 'menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $communicationsOpen ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-comments"></i>
+                            <p>Communications<i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
                     @if($canBulkSms)
                         <li class="nav-item">
                             <a href="{{ route('bulk_sms.index') }}" class="nav-link {{ request()->routeIs('bulk_sms.*') ? 'active' : '' }}">
@@ -387,15 +425,20 @@
                             </a>
                         </li>
                     @endif
-
+                        </ul>
+                    </li>
                     @endif
 
                     {{-- =====================================
                          GROUP: ADMIN / SETTINGS
                          ===================================== --}}
                     @if($canSettings || $canStaff)
-                    <li class="nav-header">ADMIN & SETTINGS</li>
-
+                    <li class="nav-item has-treeview {{ $adminSettingsOpen ? 'menu-open' : '' }}">
+                        <a href="#" class="nav-link {{ $adminSettingsOpen ? 'active' : '' }}">
+                            <i class="nav-icon fas fa-cogs"></i>
+                            <p>Admin & Settings<i class="right fas fa-angle-left"></i></p>
+                        </a>
+                        <ul class="nav nav-treeview">
                     @if($canStaff)
                         <li class="nav-item">
                             <a href="{{ route('staff.index') }}" class="nav-link {{ request()->routeIs('staff.*') ? 'active' : '' }}">
@@ -445,6 +488,8 @@
                             </a>
                         </li>
                     @endif
+                        </ul>
+                    </li>
                     @endif
 
                 </ul>

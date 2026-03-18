@@ -8,6 +8,15 @@ use Illuminate\Support\Facades\DB;
 
 class LoyaltyController extends Controller
 {
+    private function clientNameExpr(string $first = 'c.first_name', string $last = 'c.last_name'): string
+    {
+        if (DB::getDriverName() === 'sqlite') {
+            return "TRIM(COALESCE({$first},'') || ' ' || COALESCE({$last},''))";
+        }
+
+        return "TRIM(CONCAT(COALESCE({$first},''), ' ', COALESCE({$last},'')))";
+    }
+
     public function index(Request $request)
     {
         $tiers = DB::table('loyalty_tiers')
@@ -19,7 +28,7 @@ class LoyaltyController extends Controller
             ->leftJoin('client_loyalty as cl', 'cl.client_id', '=', 'c.id')
             ->select([
                 'c.id',
-                DB::raw("TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')) as client_name"),
+                DB::raw($this->clientNameExpr() . ' as client_name'),
                 DB::raw("COALESCE(cl.points_balance,0) as points"),
             ])
             ->orderByDesc('points')
