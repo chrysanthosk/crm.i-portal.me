@@ -54,12 +54,11 @@ class InitialSetupSeeder extends Seeder
         $receptionRole->permissions()->syncWithoutDetaching(
             Permission::query()->whereIn('permission_key', [
                 'appointment.manage',
-                'appointment.view',
-                'calendar.view',
+                'calendar_view.view',
                 'client.manage',
-                'pos.access',
-                'pos.sales.view',
-                'reporting.view',
+                'cashier.manage',
+                'reports.view',
+                'bulk_sms.send',
             ])->pluck('id')->all()
         );
 

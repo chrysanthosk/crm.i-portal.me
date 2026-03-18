@@ -100,7 +100,7 @@ class User extends Authenticatable
 
     public function hasPermission(string $permissionKey): bool
     {
-        if (($this->role ?? null) === 'admin') {
+        if (in_array(($this->role ?? null), ['admin', 'owner'], true)) {
             return true;
         }
 
