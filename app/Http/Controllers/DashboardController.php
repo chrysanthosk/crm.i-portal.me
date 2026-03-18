@@ -15,10 +15,26 @@ class DashboardController extends Controller
     public function __invoke(Request $request)
     {
         $user = $request->user();
-        
+        $roleKey = (string) ($user->role ?? 'user');
+
         $canManageAppointments = $user && (
-            $user->role === 'admin' || $user->hasPermission('appointment.manage')
+            in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('appointment.manage')
         );
+
+        $canCalendarView = $user && (
+            in_array($user->role, ['admin', 'owner'], true)
+            || $user->hasPermission('calendar_view.view')
+            || $user->hasPermission('appointment.manage')
+        );
+
+        $canPos = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('cashier.manage'));
+        $canClients = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('client.manage'));
+        $canReports = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('reports.view'));
+        $canAdminArea = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('admin.access'));
+
+        if ($roleKey === 'user' && $canCalendarView && !$canClients && !$canPos && !$canReports && !$canAdminArea) {
+            return redirect()->route('calendar_view.index');
+        }
 
         $today = Carbon::today();
         $start = $today->copy()->startOfDay();
@@ -68,14 +84,35 @@ class DashboardController extends Controller
             ];
         })->values();
 
+        $roleExperience = match ($roleKey) {
+            'owner' => [
+                'label' => 'Owner workspace',
+                'summary' => 'Full business overview with operations, reports, communications, and settings access.',
+            ],
+            'admin' => [
+                'label' => 'Admin workspace',
+                'summary' => 'Full operational and administrative control across the CRM.',
+            ],
+            'reception' => [
+                'label' => 'Reception workspace',
+                'summary' => 'Front-desk workflow focused on calendar, appointments, clients, cashier, and limited reports.',
+            ],
+            default => [
+                'label' => 'Staff workspace',
+                'summary' => 'Operational access only. Staff users are routed toward the calendar when broader dashboard access is not needed.',
+            ],
+        };
+
         return view('dashboard', [
             'stats' => $stats,
             'today' => $localDate,
             'rows' => $rows,
             'canManage' => $canManageAppointments,
-            'canPos' => $user && ($user->role === 'admin' || $user->hasPermission('cashier.manage')),
-            'canClients' => $user && ($user->role === 'admin' || $user->hasPermission('client.manage')),
-            'canReports' => $user && ($user->role === 'admin' || $user->hasPermission('reports.view')),
+            'canPos' => $canPos,
+            'canClients' => $canClients,
+            'canReports' => $canReports,
+            'roleExperience' => $roleExperience,
+            'roleKey' => $roleKey,
         ]);
     }
 }
