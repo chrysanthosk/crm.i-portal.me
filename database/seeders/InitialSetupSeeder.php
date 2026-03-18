@@ -57,7 +57,11 @@ class InitialSetupSeeder extends Seeder
                 'calendar_view.view',
                 'client.manage',
                 'cashier.manage',
+                'services.manage',
+                'inventory.manage',
+                'suppliers.manage',
                 'reports.view',
+                'zreports.manage',
                 'bulk_sms.send',
             ])->pluck('id')->all()
         );
