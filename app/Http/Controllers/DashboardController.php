@@ -84,14 +84,35 @@ class DashboardController extends Controller
             ];
         })->values();
 
+        $roleExperience = match ($roleKey) {
+            'owner' => [
+                'label' => 'Owner workspace',
+                'summary' => 'Full business overview with operations, reports, communications, and settings access.',
+            ],
+            'admin' => [
+                'label' => 'Admin workspace',
+                'summary' => 'Full operational and administrative control across the CRM.',
+            ],
+            'reception' => [
+                'label' => 'Reception workspace',
+                'summary' => 'Front-desk workflow focused on calendar, appointments, clients, cashier, and limited reports.',
+            ],
+            default => [
+                'label' => 'Staff workspace',
+                'summary' => 'Operational access only. Staff users are routed toward the calendar when broader dashboard access is not needed.',
+            ],
+        };
+
         return view('dashboard', [
             'stats' => $stats,
             'today' => $localDate,
             'rows' => $rows,
             'canManage' => $canManageAppointments,
-            'canPos' => $user && ($user->role === 'admin' || $user->hasPermission('cashier.manage')),
-            'canClients' => $user && ($user->role === 'admin' || $user->hasPermission('client.manage')),
-            'canReports' => $user && ($user->role === 'admin' || $user->hasPermission('reports.view')),
+            'canPos' => $canPos,
+            'canClients' => $canClients,
+            'canReports' => $canReports,
+            'roleExperience' => $roleExperience,
+            'roleKey' => $roleKey,
         ]);
     }
 }
