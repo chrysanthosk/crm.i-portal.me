@@ -58,6 +58,7 @@ class InitialSetupSeeder extends Seeder
                 'client.manage',
                 'cashier.manage',
                 'reports.view',
+                'zreports.manage',
                 'bulk_sms.send',
             ])->pluck('id')->all()
         );

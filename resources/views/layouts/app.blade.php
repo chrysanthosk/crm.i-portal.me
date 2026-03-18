@@ -22,6 +22,7 @@
 @php
     $user = auth()->user();
     $isDark = (($uiTheme ?? 'light') === 'dark');
+    $isReception = (($user?->role ?? null) === 'reception');
 
     // Permissions
     $canAppointments = ($user && ($user->role === 'admin' || $user->hasPermission('appointment.manage')));
@@ -56,6 +57,7 @@
 
     // ✅ Staff Performance permission
     $canStaffPerformance = ($user && ($user->role === 'admin' || $user->hasPermission('staff_reports.view')));
+    $canZReportsManage   = ($user && ($user->role === 'admin' || $user->hasPermission('zreports.manage')));
 
     $canAnyReports       = ($canAnalytics || $canBiReports || $canReportsPage || $canStaffPerformance);
 
@@ -323,10 +325,10 @@
                     {{-- =====================================
                          GROUP: REPORTS
                          ===================================== --}}
-                    @if($canAnyReports || $canFinancial || $canStaffPerformance)
+                    @if((!$isReception && ($canAnyReports || $canFinancial || $canStaffPerformance)) || $canZReportsManage)
                     <li class="nav-header">REPORTS</li>
 
-                    @if($canAnyReports)
+                    @if(!$isReception && $canAnyReports)
                         <li class="nav-item has-treeview {{ request()->routeIs('reports.index', 'reports.analytics', 'reports.bi', 'reports.staff_performance') ? 'menu-open' : '' }}">
                             <a href="#" class="nav-link {{ request()->routeIs('reports.index', 'reports.analytics', 'reports.bi', 'reports.staff_performance') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-chart-bar"></i>
@@ -365,7 +367,15 @@
                         </li>
                     @endif
 
-                    @if($canFinancial)
+                    @if($canZReportsManage)
+                        <li class="nav-item">
+                            <a href="{{ route('reports.index', ['report' => 'z_reports']) }}" class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-file-invoice"></i><p>Z Reports</p>
+                            </a>
+                        </li>
+                    @endif
+
+                    @if(!$isReception && $canFinancial)
                         <li class="nav-item has-treeview {{ request()->routeIs('reports.financial.*') ? 'menu-open' : '' }}">
                             <a href="#" class="nav-link {{ request()->routeIs('reports.financial.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-coins"></i>
@@ -390,7 +400,7 @@
                     {{-- =====================================
                          GROUP: COMMUNICATIONS
                          ===================================== --}}
-                    @if($canBulkSms || ($canSettings && $canSms))
+                    @if($canBulkSms || (!$isReception && ($canSettings && $canSms)))
                     <li class="nav-item has-treeview {{ $communicationsOpen ? 'menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $communicationsOpen ? 'active' : '' }}">
                             <i class="nav-icon fas fa-comments"></i>
@@ -405,7 +415,7 @@
                         </li>
                     @endif
 
-                    @if($canSettings && $canSms)
+                    @if(!$isReception && $canSettings && $canSms)
                         <li class="nav-item">
                             <a href="{{ route('settings.sms.edit') }}" class="nav-link {{ request()->routeIs('settings.sms.edit') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-comment-dots"></i><p>SMS Settings</p>
@@ -418,7 +428,7 @@
                         </li>
                     @endif
 
-                    @if($canSettings)
+                    @if(!$isReception && $canSettings)
                         <li class="nav-item">
                             <a href="{{ route('settings.smtp.edit') }}" class="nav-link {{ request()->routeIs('settings.smtp.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-envelope"></i><p>SMTP Settings</p>
@@ -432,7 +442,7 @@
                     {{-- =====================================
                          GROUP: ADMIN / SETTINGS
                          ===================================== --}}
-                    @if($canSettings || $canStaff)
+                    @if(!$isReception && ($canSettings || $canStaff))
                     <li class="nav-item has-treeview {{ $adminSettingsOpen ? 'menu-open' : '' }}">
                         <a href="#" class="nav-link {{ $adminSettingsOpen ? 'active' : '' }}">
                             <i class="nav-icon fas fa-cogs"></i>
@@ -521,6 +531,20 @@
     {{-- Footer --}}
     <footer class="main-footer">
         <div class="float-right d-none d-sm-inline">{{ now()->format('Y') }}</div>
+        <strong>&copy; {{ now()->format('Y') }} {{ $systemFooterName ?? config('app.name') }}</strong>
+    </footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+
+@stack('scripts')
+</body>
+</html>
+>
+"float-right d-none d-sm-inline">{{ now()->format('Y') }}</div>
         <strong>&copy; {{ now()->format('Y') }} {{ $systemFooterName ?? config('app.name') }}</strong>
     </footer>
 
