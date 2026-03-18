@@ -15,10 +15,26 @@ class DashboardController extends Controller
     public function __invoke(Request $request)
     {
         $user = $request->user();
-        
+        $roleKey = (string) ($user->role ?? 'user');
+
         $canManageAppointments = $user && (
-            $user->role === 'admin' || $user->hasPermission('appointment.manage')
+            in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('appointment.manage')
         );
+
+        $canCalendarView = $user && (
+            in_array($user->role, ['admin', 'owner'], true)
+            || $user->hasPermission('calendar_view.view')
+            || $user->hasPermission('appointment.manage')
+        );
+
+        $canPos = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('cashier.manage'));
+        $canClients = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('client.manage'));
+        $canReports = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('reports.view'));
+        $canAdminArea = $user && (in_array($user->role, ['admin', 'owner'], true) || $user->hasPermission('admin.access'));
+
+        if ($roleKey === 'user' && $canCalendarView && !$canClients && !$canPos && !$canReports && !$canAdminArea) {
+            return redirect()->route('calendar_view.index');
+        }
 
         $today = Carbon::today();
         $start = $today->copy()->startOfDay();
