@@ -42,16 +42,6 @@
 @endpush
 
 @section('content')
-<div class="alert alert-light border mb-3">
-    <div class="d-flex justify-content-between align-items-start flex-wrap">
-        <div>
-            <div class="text-muted small text-uppercase">{{ $roleExperience['label'] ?? 'Workspace' }}</div>
-            <div>{{ $roleExperience['summary'] ?? 'Daily operations overview.' }}</div>
-        </div>
-        <span class="badge badge-secondary mt-2 mt-md-0">role: {{ $roleKey }}</span>
-    </div>
-</div>
-
 <div class="row mb-3">
     <div class="col-md-3">
         <div class="small-box bg-info">
