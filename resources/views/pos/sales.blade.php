@@ -244,7 +244,7 @@
                       onsubmit="return confirmVoidSale({{ $sid }});"
                     >
                       @csrf
-                      <input type="hidden" name="void_reason" id="void_reason_{{ $sid }}" value="">
+                      <input type="hidden" name="reason" id="void_reason_{{ $sid }}" value="">
                       <button type="submit" class="btn btn-sm btn-warning" title="Void sale">
                         <i class="fas fa-ban"></i> Void
                       </button>

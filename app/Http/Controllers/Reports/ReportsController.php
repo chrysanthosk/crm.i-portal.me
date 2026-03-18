@@ -556,7 +556,7 @@ class ReportsController extends Controller
                 $rows = DB::table('appointments as a')
                     ->join('clients as c', 'a.client_id', '=', 'c.id')
                     ->whereBetween('a.start_at', [$fromDt, $toDt])
-                    ->selectRaw("TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')) as client_name, COUNT(a.id) as appt_count")
+                    ->selectRaw("{$this->clientNameExpr('c')} as client_name, COUNT(a.id) as appt_count")
                     ->groupBy('a.client_id', 'c.first_name', 'c.last_name')
                     ->orderByDesc('appt_count')
                     ->limit(10)
@@ -571,7 +571,7 @@ class ReportsController extends Controller
                     ->leftJoin('clients as c', 's.client_id', '=', 'c.id')
                     ->whereNull('s.voided_at')
                     ->whereBetween('s.created_at', [$fromDt, $toDt])
-                    ->selectRaw("COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')),'Walk-in') as client_name, SUM(sp.amount) as total_paid")
+                    ->selectRaw("{$this->clientNameExpr('c', true)} as client_name, SUM(sp.amount) as total_paid")
                     ->groupBy('s.client_id', 'c.first_name', 'c.last_name')
                     ->orderByDesc('total_paid')
                     ->limit(10)
@@ -629,7 +629,7 @@ class ReportsController extends Controller
             case 'first_appointments':
                 $rows = DB::table('appointments as a')
                     ->join('clients as c', 'a.client_id', '=', 'c.id')
-                    ->selectRaw("TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')) as client_name, MIN(a.start_at) as first_appt_date")
+                    ->selectRaw("{$this->clientNameExpr('c')} as client_name, MIN(a.start_at) as first_appt_date")
                     ->groupBy('a.client_id', 'c.first_name', 'c.last_name')
                     ->havingRaw("DATE(first_appt_date) BETWEEN ? AND ?", [Carbon::parse($from)->toDateString(), Carbon::parse($to)->toDateString()])
                     ->orderByDesc('first_appt_date')
@@ -671,7 +671,7 @@ class ReportsController extends Controller
                     ->selectRaw("
                         s.id as sale_id,
                         s.created_at as sale_date,
-                        COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')),'Walk-in') as client_name,
+                        {$this->clientNameExpr('c', true)} as client_name,
                         {$staffSelectSql},
                         (SELECT GROUP_CONCAT(sv.name, ', ')
                            FROM sale_services ss2
@@ -716,7 +716,7 @@ class ReportsController extends Controller
                     ->selectRaw("
                         s.id as sale_id,
                         s.created_at as sale_date,
-                        COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')),'Walk-in') as client_name,
+                        {$this->clientNameExpr('c', true)} as client_name,
                         {$staffSelectSql},
                         (SELECT GROUP_CONCAT(p.name, ', ')
                            FROM sale_products sp2
@@ -746,7 +746,7 @@ class ReportsController extends Controller
                 $rows = $q->selectRaw("
                     s.id as sale_id,
                     s.created_at as sale_date,
-                    COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')),'Walk-in') as client_name,
+                    {$this->clientNameExpr('c', true)} as client_name,
                     (SELECT GROUP_CONCAT(sv.name, ', ')
                        FROM sale_services ss2
                        JOIN services sv ON sv.id = ss2.service_id
@@ -797,7 +797,7 @@ class ReportsController extends Controller
                 $rows = $sales->selectRaw("
                     s.id as sale_id,
                     s.created_at as sale_date,
-                    COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')),'Walk-in') as client_name,
+                    {$this->clientNameExpr('c', true)} as client_name,
                     (SELECT GROUP_CONCAT(sv.name, ', ')
                        FROM sale_services ss2
                        JOIN services sv ON sv.id = ss2.service_id
@@ -847,7 +847,7 @@ class ReportsController extends Controller
                 $rows = $sales->selectRaw("
                     s.id as sale_id,
                     s.created_at as sale_date,
-                    COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')),'Walk-in') as client_name,
+                    {$this->clientNameExpr('c', true)} as client_name,
                     (SELECT sv.name
                        FROM sale_services ss2
                        JOIN services sv ON sv.id = ss2.service_id
@@ -898,7 +898,7 @@ class ReportsController extends Controller
                 $rows = $sales->selectRaw("
                     s.id as sale_id,
                     s.created_at as sale_date,
-                    COALESCE(TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')),'Walk-in') as client_name,
+                    {$this->clientNameExpr('c', true)} as client_name,
                     (SELECT GROUP_CONCAT(sv.name, ', ')
                        FROM sale_services ss2
                        JOIN services sv ON sv.id = ss2.service_id
@@ -961,7 +961,7 @@ class ReportsController extends Controller
         $rows = $q->selectRaw("
             t.id as id,
             COALESCE(
-                TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),
+                {$this->personNameExpr('u.first_name', 'u.last_name')},
                 COALESCE(u.name,'')
             ) as name
         ")->orderBy('name')->get()->toArray();
@@ -1316,7 +1316,7 @@ class ReportsController extends Controller
             $rows = DB::table('clients as c')
                 ->join('sales as s', 's.client_id', '=', 'c.id')
                 ->whereNull('s.voided_at')
-                ->selectRaw("c.id, TRIM(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,'')) AS client, COALESCE(SUM(s.grand_total),0) AS lifetime_value")
+                ->selectRaw("c.id, {$this->clientNameExpr('c')} AS client, COALESCE(SUM(s.grand_total),0) AS lifetime_value")
                 ->groupBy('c.id', 'c.first_name', 'c.last_name')
                 ->get();
 
@@ -1382,6 +1382,24 @@ class ReportsController extends Controller
         return "DATE({$col})";
     }
 
+    private function personNameExpr(string $first, string $last): string
+    {
+        if ($this->driver() === 'sqlite') {
+            return "TRIM(COALESCE({$first},'') || ' ' || COALESCE({$last},''))";
+        }
+
+        return "TRIM(CONCAT(COALESCE({$first},''), ' ', COALESCE({$last},'')))";
+    }
+
+    private function clientNameExpr(string $alias = 'c', bool $fallbackWalkIn = false): string
+    {
+        $expr = $this->personNameExpr("{$alias}.first_name", "{$alias}.last_name");
+
+        return $fallbackWalkIn
+            ? "COALESCE({$expr},'Walk-in')"
+            : $expr;
+    }
+
     private function whereYear(string $col): string
     {
         if ($this->driver() === 'sqlite') {
@@ -1412,9 +1430,7 @@ class ReportsController extends Controller
         $hasStaff = fn(string $c) => in_array($c, $staffCols, true);
 
         if ($hasStaff('first_name') && $hasStaff('last_name')) {
-            $expr = $this->driver() === 'sqlite'
-                ? "TRIM(COALESCE({$staffAlias}.first_name,'') || ' ' || COALESCE({$staffAlias}.last_name,''))"
-                : "TRIM(CONCAT(COALESCE({$staffAlias}.first_name,''),' ',COALESCE({$staffAlias}.last_name,'')))";
+            $expr = $this->personNameExpr("{$staffAlias}.first_name", "{$staffAlias}.last_name");
 
             return [
                 "COALESCE({$staffAlias}.first_name,'') as first_name, COALESCE({$staffAlias}.last_name,'') as last_name, {$expr} as name",
@@ -1436,9 +1452,7 @@ class ReportsController extends Controller
         $hasUser = fn(string $c) => in_array($c, $userCols, true);
 
         if ($hasUser('first_name') && $hasUser('last_name')) {
-            $expr = $this->driver() === 'sqlite'
-                ? "TRIM(COALESCE({$userAlias}.first_name,'') || ' ' || COALESCE({$userAlias}.last_name,''))"
-                : "TRIM(CONCAT(COALESCE({$userAlias}.first_name,''),' ',COALESCE({$userAlias}.last_name,'')))";
+            $expr = $this->personNameExpr("{$userAlias}.first_name", "{$userAlias}.last_name");
 
             return [
                 "COALESCE({$userAlias}.first_name,'') as first_name, COALESCE({$userAlias}.last_name,'') as last_name, {$expr} as name",
