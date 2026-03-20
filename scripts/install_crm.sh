@@ -566,6 +566,7 @@ EOF
 write_nginx_vhost() {
   local upstream_port="$1"
   mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+  rm -f /etc/nginx/sites-enabled/default
   cat > "/etc/nginx/sites-available/${DOMAIN}.conf" <<EOF
 server {
     listen 80;
@@ -585,9 +586,36 @@ server {
     }
 }
 EOF
+  if [[ "$SSL_MODE" == "existing" ]]; then
+    cat >> "/etc/nginx/sites-available/${DOMAIN}.conf" <<EOF
+
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN};
+    ssl_certificate ${SSL_CERT_PATH};
+    ssl_certificate_key ${SSL_KEY_PATH};
+    client_max_body_size 32m;
+
+    location / {
+        proxy_pass http://127.0.0.1:${upstream_port};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection upgrade;
+    }
+}
+EOF
+  fi
   ln -sfn "/etc/nginx/sites-available/${DOMAIN}.conf" "/etc/nginx/sites-enabled/${DOMAIN}.conf"
   nginx -t
   systemctl reload nginx
+  if [[ "$SSL_MODE" == "letsencrypt" ]]; then
+    echo "Running certbot for nginx..."
+    certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
+  fi
 }
 
 write_apache_vhost_proxy() {
