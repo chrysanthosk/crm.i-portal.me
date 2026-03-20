@@ -603,11 +603,30 @@ write_apache_vhost_proxy() {
     RequestHeader set X-Forwarded-Proto "http"
 </VirtualHost>
 EOF
+  if [[ "$SSL_MODE" == "existing" ]]; then
+    cat >> "${apache_dir}/${DOMAIN}.conf" <<EOF
+
+<VirtualHost *:443>
+    ServerName ${DOMAIN}
+    SSLEngine on
+    SSLCertificateFile ${SSL_CERT_PATH}
+    SSLCertificateKeyFile ${SSL_KEY_PATH}
+    ProxyPreserveHost On
+    ProxyPass / http://127.0.0.1:${upstream_port}/
+    ProxyPassReverse / http://127.0.0.1:${upstream_port}/
+    RequestHeader set X-Forwarded-Proto "https"
+</VirtualHost>
+EOF
+  fi
   if command -v a2enmod >/dev/null 2>&1; then
-    a2enmod proxy proxy_http headers >/dev/null || true
+    a2enmod proxy proxy_http headers ssl >/dev/null || true
     a2ensite "${DOMAIN}.conf" >/dev/null || true
     apache2ctl configtest
     systemctl reload apache2
+    if [[ "$SSL_MODE" == "letsencrypt" ]]; then
+      echo "Running certbot for apache..."
+      certbot --apache -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
+    fi
   else
     httpd -t
     systemctl reload httpd
@@ -868,6 +887,13 @@ Created helper scripts:
 - ${APP_DIR}/scripts/backup_db.sh
 - ${APP_DIR}/scripts/restore_db.sh
 - ${APP_DIR}/scripts/redeploy_crm.sh
+
+Important:
+- Docker mode preserves DB/storage on normal redeploys because it uses named volumes.
+- Avoid 'docker compose down -v' unless you explicitly want to destroy DB/storage volumes.
+- Private S3 backups use ${BACKUP_ENV_FILE} (root-only).
+EOF
+{APP_DIR}/scripts/redeploy_crm.sh
 
 Important:
 - Docker mode preserves DB/storage on normal redeploys because it uses named volumes.
