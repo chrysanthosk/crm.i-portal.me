@@ -481,12 +481,12 @@ install_restore_script() {
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 /path/to/backup.sql.gz" >&2
+if [[ \$# -ne 1 ]]; then
+  echo "Usage: \$0 /path/to/backup.sql.gz" >&2
   exit 1
 fi
 
-BACKUP_FILE="$1"
+BACKUP_FILE="\$1"
 MODE="${MODE}"
 APP_DIR="${APP_DIR}"
 DB_NAME="${DB_NAME}"
