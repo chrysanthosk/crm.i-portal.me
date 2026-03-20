@@ -195,6 +195,7 @@ ensure_regular_stack() {
   ensure_base_packages
   apt_install software-properties-common
   apt_install php-cli php-fpm php-mysql php-xml php-mbstring php-curl php-zip php-gd php-intl php-bcmath php-sqlite3 composer nodejs npm mysql-client
+  systemctl enable --now php8.4-fpm 2>/dev/null || systemctl enable --now php-fpm 2>/dev/null || true
 }
 
 bootstrap_host() {
@@ -451,13 +452,13 @@ if [[ "\${BACKUP_TARGET}" == "s3" || "\${BACKUP_TARGET}" == "both" ]]; then
 
   AWS_ARGS=()
   [[ -n "\${AWS_ENDPOINT_URL:-}" ]] && AWS_ARGS+=(--endpoint-url "\${AWS_ENDPOINT_URL}")
+  export AWS_ACCESS_KEY_ID="\${AWS_ACCESS_KEY_ID}"
+  export AWS_SECRET_ACCESS_KEY="\${AWS_SECRET_ACCESS_KEY}"
+  export AWS_DEFAULT_REGION="\${AWS_DEFAULT_REGION}"
   if [[ "\${AWS_USE_PATH_STYLE_ENDPOINT:-false}" == "true" ]]; then
-    AWS_ARGS+=(--no-verify-ssl)
+    export AWS_S3_FORCE_PATH_STYLE=true
   fi
-  AWS_ACCESS_KEY_ID="\${AWS_ACCESS_KEY_ID}" \
-  AWS_SECRET_ACCESS_KEY="\${AWS_SECRET_ACCESS_KEY}" \
-  AWS_DEFAULT_REGION="\${AWS_DEFAULT_REGION}" \
-    aws s3 cp "\${OUT}" "\${BACKUP_S3_URI}/" "\${AWS_ARGS[@]}"
+  aws s3 cp "\${OUT}" "\${BACKUP_S3_URI}/" "\${AWS_ARGS[@]}"
 fi
 
 echo "Backup created: \${OUT}"
@@ -494,6 +495,10 @@ DB_PASS='${DB_PASS}'
 DB_ROOT_PASS='${DB_ROOT_PASS}'
 
 [[ -f "\${BACKUP_FILE}" ]] || { echo "Backup file not found: \${BACKUP_FILE}" >&2; exit 1; }
+
+echo "WARNING: this will overwrite data in database '\${DB_NAME}'."
+read -r -p "Type RESTORE to continue: " CONFIRM
+[[ "\${CONFIRM}" == "RESTORE" ]] || { echo "Aborted."; exit 1; }
 
 if [[ "\${MODE}" == "docker" ]]; then
   cd "\${APP_DIR}"

@@ -237,9 +237,15 @@ sudo bash scripts/install_crm.sh \
 
 ---
 
-## Next hardening pass still recommended
+## Current hardening status
 
-Before production use, the best next refinements are:
-- add a destructive-action confirmation to `restore_db.sh`
-- refine S3-compatible endpoint/path-style behavior
-- perform one real end-to-end dry run in Docker mode and one in Regular mode
+This branch now includes:
+- destructive-action confirmation in `restore_db.sh`
+- improved S3 upload handling for private buckets / custom endpoints
+- fresh-Ubuntu bootstrap for Docker and Regular installation modes
+
+## Still recommended before production use
+
+- perform one real end-to-end dry run in Docker mode
+- perform one real end-to-end dry run in Regular mode
+- tighten any environment-specific package/version assumptions found during those tests
