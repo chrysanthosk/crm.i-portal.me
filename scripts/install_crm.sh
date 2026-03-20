@@ -320,8 +320,15 @@ if [[ "$NON_INTERACTIVE" != "1" ]]; then
     prompt APP_PORT "Docker app port (bound to 127.0.0.1)" "$APP_PORT"
   fi
   choose_one WEB_SERVER "Web server" "$(detect_web_server)" auto nginx apache
+  choose_one SSL_MODE "SSL mode" "$SSL_MODE" none existing letsencrypt
   if [[ "$MODE" == "regular" && "$WEB_SERVER" == "nginx" ]]; then
     prompt PHP_FPM_SOCK "PHP-FPM socket" "${PHP_FPM_SOCK:-/run/php/php8.4-fpm.sock}"
+  fi
+  if [[ "$SSL_MODE" == "existing" ]]; then
+    prompt SSL_CERT_PATH "SSL certificate/fullchain path" "$SSL_CERT_PATH"
+    prompt SSL_KEY_PATH "SSL private key path" "$SSL_KEY_PATH"
+  elif [[ "$SSL_MODE" == "letsencrypt" ]]; then
+    prompt SSL_EMAIL "Let's Encrypt email" "${SSL_EMAIL:-admin@${DOMAIN}}"
   fi
   prompt PHP_BIN "PHP binary" "$PHP_BIN"
   choose_one BACKUP_TARGET "Backup target" "$BACKUP_TARGET" local s3 both
