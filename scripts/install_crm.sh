@@ -878,6 +878,8 @@ EOF
         apache2ctl configtest
         systemctl reload apache2
         if [[ "$SSL_MODE" == "letsencrypt" ]]; then
+          ensure_certbot
+          echo "Running certbot for apache..."
           certbot --apache -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
         fi
       else
