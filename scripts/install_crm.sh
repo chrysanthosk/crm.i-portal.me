@@ -614,6 +614,7 @@ EOF
   systemctl reload nginx
   if [[ "$SSL_MODE" == "letsencrypt" ]]; then
     ensure_certbot
+    command -v certbot >/dev/null 2>&1 || { echo "certbot unavailable after ensure_certbot" >&2; exit 1; }
     echo "Running certbot for nginx..."
     certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
   fi
@@ -841,6 +842,7 @@ EOF
       systemctl reload nginx
       if [[ "$SSL_MODE" == "letsencrypt" ]]; then
         ensure_certbot
+        command -v certbot >/dev/null 2>&1 || { echo "certbot unavailable after ensure_certbot" >&2; exit 1; }
         echo "Running certbot for nginx..."
         certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
       fi
@@ -882,6 +884,7 @@ EOF
         systemctl reload apache2
         if [[ "$SSL_MODE" == "letsencrypt" ]]; then
           ensure_certbot
+          command -v certbot >/dev/null 2>&1 || { echo "certbot unavailable after ensure_certbot" >&2; exit 1; }
           echo "Running certbot for apache..."
           certbot --apache -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
         fi
