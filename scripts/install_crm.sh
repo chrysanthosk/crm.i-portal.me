@@ -893,10 +893,3 @@ Important:
 - Avoid 'docker compose down -v' unless you explicitly want to destroy DB/storage volumes.
 - Private S3 backups use ${BACKUP_ENV_FILE} (root-only).
 EOF
-{APP_DIR}/scripts/redeploy_crm.sh
-
-Important:
-- Docker mode preserves DB/storage on normal redeploys because it uses named volumes.
-- Avoid 'docker compose down -v' unless you explicitly want to destroy DB/storage volumes.
-- Private S3 backups use ${BACKUP_ENV_FILE} (root-only).
-EOF
