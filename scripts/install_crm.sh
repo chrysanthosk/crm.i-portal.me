@@ -613,6 +613,7 @@ EOF
   nginx -t
   systemctl reload nginx
   if [[ "$SSL_MODE" == "letsencrypt" ]]; then
+    ensure_certbot
     echo "Running certbot for nginx..."
     certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
   fi
@@ -839,6 +840,8 @@ EOF
       nginx -t
       systemctl reload nginx
       if [[ "$SSL_MODE" == "letsencrypt" ]]; then
+        ensure_certbot
+        echo "Running certbot for nginx..."
         certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
       fi
     else
