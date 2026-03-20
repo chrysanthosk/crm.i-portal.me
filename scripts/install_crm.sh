@@ -31,6 +31,12 @@ Web / runtime:
   --php-fpm-sock /run/php/php8.4-fpm.sock
   --app-port 8088                  Docker mode only
 
+SSL:
+  --ssl-mode none|existing|letsencrypt
+  --ssl-cert-path /etc/ssl/certs/fullchain.pem
+  --ssl-key-path /etc/ssl/private/privkey.pem
+  --ssl-email admin@example.com
+
 Backups:
   --backup-target local|s3|both
   --backup-dir /var/backups/crm
@@ -342,6 +348,7 @@ if [[ "$NON_INTERACTIVE" != "1" ]]; then
   echo "Repo / branch:      $REPO @ $BRANCH"
   echo "DB name / user:     $DB_NAME / $DB_USER"
   echo "Web server:         $WEB_SERVER"
+  echo "SSL mode:           $SSL_MODE"
   echo "Backup target:      $BACKUP_TARGET"
   echo "Backup dir:         $BACKUP_DIR"
   echo "Retention days:     $BACKUP_RETENTION_DAYS"
@@ -360,6 +367,7 @@ fi
 [[ "$MODE" == "docker" || "$MODE" == "regular" ]] || { echo "--mode must be docker or regular" >&2; exit 1; }
 [[ "$WEB_SERVER" == "auto" || "$WEB_SERVER" == "nginx" || "$WEB_SERVER" == "apache" ]] || { echo "--web-server must be auto|nginx|apache" >&2; exit 1; }
 [[ "$BACKUP_TARGET" == "local" || "$BACKUP_TARGET" == "s3" || "$BACKUP_TARGET" == "both" ]] || { echo "--backup-target must be local|s3|both" >&2; exit 1; }
+[[ "$SSL_MODE" == "none" || "$SSL_MODE" == "existing" || "$SSL_MODE" == "letsencrypt" ]] || { echo "--ssl-mode must be none|existing|letsencrypt" >&2; exit 1; }
 
 if [[ "$WEB_SERVER" == "auto" ]]; then
   WEB_SERVER="$(detect_web_server)"
@@ -741,9 +749,40 @@ server {
     }
 }
 EOF
+      if [[ "$SSL_MODE" == "existing" ]]; then
+        cat >> "/etc/nginx/sites-available/${DOMAIN}.conf" <<EOF
+
+server {
+    listen 443 ssl http2;
+    server_name ${DOMAIN};
+    root ${APP_DIR}/public;
+    index index.php index.html;
+    ssl_certificate ${SSL_CERT_PATH};
+    ssl_certificate_key ${SSL_KEY_PATH};
+    client_max_body_size 32m;
+
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_param SCRIPT_FILENAME \$realpath_root\$fastcgi_script_name;
+        fastcgi_pass unix:${PHP_FPM_SOCK};
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+EOF
+      fi
       ln -sfn "/etc/nginx/sites-available/${DOMAIN}.conf" "/etc/nginx/sites-enabled/${DOMAIN}.conf"
       nginx -t
       systemctl reload nginx
+      if [[ "$SSL_MODE" == "letsencrypt" ]]; then
+        certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
+      fi
     else
       local apache_dir="/etc/apache2/sites-available"
       [[ -d "$apache_dir" ]] || apache_dir="/etc/httpd/conf.d"
@@ -758,11 +797,31 @@ EOF
     </Directory>
 </VirtualHost>
 EOF
+      if [[ "$SSL_MODE" == "existing" ]]; then
+        cat >> "${apache_dir}/${DOMAIN}.conf" <<EOF
+
+<VirtualHost *:443>
+    ServerName ${DOMAIN}
+    DocumentRoot ${APP_DIR}/public
+    SSLEngine on
+    SSLCertificateFile ${SSL_CERT_PATH}
+    SSLCertificateKeyFile ${SSL_KEY_PATH}
+
+    <Directory ${APP_DIR}/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+EOF
+      fi
       if command -v a2ensite >/dev/null 2>&1; then
-        a2enmod rewrite headers >/dev/null || true
+        a2enmod rewrite headers ssl >/dev/null || true
         a2ensite "${DOMAIN}.conf" >/dev/null || true
         apache2ctl configtest
         systemctl reload apache2
+        if [[ "$SSL_MODE" == "letsencrypt" ]]; then
+          certbot --apache -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect
+        fi
       else
         httpd -t
         systemctl reload httpd
@@ -788,6 +847,7 @@ Installation complete.
 Mode: ${MODE}
 Domain: ${DOMAIN}
 App dir: ${APP_DIR}
+SSL mode: ${SSL_MODE}
 Backup target: ${BACKUP_TARGET}
 Backup dir: ${BACKUP_DIR}
 Backup cron: $( [[ "$SKIP_BACKUP_CRON" == "1" ]] && echo disabled || echo /etc/cron.d/crm-db-backup )

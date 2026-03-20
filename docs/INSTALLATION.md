@@ -10,6 +10,7 @@ It supports:
 - **Docker installation**
 - **Regular installation**
 - **host bootstrap / prerequisite installation**
+- **SSL mode selection**
 - **local backups**
 - **private S3 backups**
 - **local + S3 backups together**
@@ -32,6 +33,10 @@ The installer asks for:
 - repo / branch
 - DB credentials
 - web server choice
+- SSL mode:
+  - `none`
+  - `existing`
+  - `letsencrypt`
 - backup target:
   - `local`
   - `s3`
@@ -54,7 +59,9 @@ On a fresh Ubuntu host, the installer will now attempt to install:
 - Docker Engine
 - Docker Compose plugin
 - nginx or apache if selected
+- certbot if Let’s Encrypt is selected
 - AWS CLI if S3 backups are selected
+- it also generates the Laravel `APP_KEY` inside the running app container after first boot
 
 ### Regular mode
 On a fresh Ubuntu host, the installer will now attempt to install:
@@ -66,10 +73,37 @@ On a fresh Ubuntu host, the installer will now attempt to install:
 - Node.js / npm
 - MySQL client
 - nginx or apache if selected
+- certbot if Let’s Encrypt is selected
 - AWS CLI if S3 backups are selected
 - it generates the Laravel `APP_KEY` using `php artisan key:generate --force`
 
 This makes the installer much more suitable for clean Ubuntu servers.
+
+---
+
+## SSL support
+
+The installer now supports three SSL modes:
+
+### 1. `none`
+- HTTP only
+- useful for first-pass testing or reverse-proxy setups handled elsewhere
+
+### 2. `existing`
+You provide:
+- certificate path
+- private key path
+
+The installer writes SSL-enabled nginx/apache vhost config using those files.
+
+### 3. `letsencrypt`
+You provide:
+- email address
+- domain
+
+The installer uses certbot to obtain and configure a Let’s Encrypt certificate.
+
+> For Let’s Encrypt to work, the domain must already resolve to the server and port 80 must be reachable from the public internet.
 
 ---
 
@@ -108,6 +142,7 @@ So the bucket does **not** need to be public.
 - starts **app + DB** in Docker
 - keeps DB/storage in named volumes
 - optionally creates nginx/apache reverse-proxy config
+- optionally provisions SSL
 - installs nightly DB backup cron
 - creates helper scripts:
   - `scripts/backup_db.sh`
@@ -136,6 +171,7 @@ unless you intentionally want to destroy DB/storage.
 - runs Composer / npm
 - runs migrations + seeders
 - configures nginx or apache using a dedicated vhost
+- optionally provisions SSL
 - installs nightly DB backup cron
 - creates helper scripts:
   - `scripts/backup_db.sh`
@@ -188,7 +224,7 @@ sudo bash scripts/install_crm.sh
 
 ---
 
-## Example: non-interactive Docker
+## Example: non-interactive Docker with Let’s Encrypt
 
 ```bash
 sudo bash scripts/install_crm.sh \
@@ -200,8 +236,9 @@ sudo bash scripts/install_crm.sh \
   --db-user crm \
   --db-pass 'secret' \
   --db-root-pass 'rootsecret' \
+  --ssl-mode letsencrypt \
+  --ssl-email admin@example.com \
   --backup-target both \
-  --backup-dir /var/backups/crm \
   --backup-s3-uri s3://my-private-bucket/crm \
   --aws-region eu-central-1 \
   --aws-access-key-id AKIA... \
@@ -210,7 +247,7 @@ sudo bash scripts/install_crm.sh \
 
 ---
 
-## Example: non-interactive Regular
+## Example: non-interactive Regular with existing certs
 
 ```bash
 sudo bash scripts/install_crm.sh \
@@ -223,6 +260,9 @@ sudo bash scripts/install_crm.sh \
   --db-pass 'secret' \
   --web-server nginx \
   --php-fpm-sock /run/php/php8.4-fpm.sock \
+  --ssl-mode existing \
+  --ssl-cert-path /etc/letsencrypt/live/crm.example.com/fullchain.pem \
+  --ssl-key-path /etc/letsencrypt/live/crm.example.com/privkey.pem \
   --backup-target local
 ```
 
@@ -231,10 +271,11 @@ sudo bash scripts/install_crm.sh \
 ## Recommended test order
 
 1. test Docker mode on a fresh Ubuntu VM
-2. verify redeploy preserves DB/storage
-3. test backup locally
-4. test S3 upload with a private bucket
-5. test Regular mode on a separate fresh Ubuntu VM
+2. test Docker mode again with SSL enabled (`existing` or `letsencrypt`)
+3. verify redeploy preserves DB/storage
+4. test backup locally
+5. test S3 upload with a private bucket
+6. test Regular mode on a separate fresh Ubuntu VM
 
 ---
 
@@ -244,10 +285,12 @@ This branch now includes:
 - destructive-action confirmation in `restore_db.sh`
 - improved S3 upload handling for private buckets / custom endpoints
 - fresh-Ubuntu bootstrap for Docker and Regular installation modes
+- Laravel-native APP_KEY generation
+- SSL mode support for `none`, `existing`, and `letsencrypt`
 
 ## Still recommended before production use
 
 - perform one real end-to-end dry run in Docker mode
 - perform one real end-to-end dry run in Regular mode
+- verify Let’s Encrypt flow against a real public DNS name
 - tighten any environment-specific package/version assumptions found during those tests
-g those tests
