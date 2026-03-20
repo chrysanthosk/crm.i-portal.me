@@ -183,6 +183,25 @@ ensure_aws_cli() {
   apt_install awscli
 }
 
+ensure_certbot() {
+  if command -v certbot >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "Installing certbot for ${WEB_SERVER}..."
+  apt-get update -y
+  if [[ "$WEB_SERVER" == "nginx" ]]; then
+    apt-get install -y certbot python3-certbot-nginx
+  else
+    apt-get install -y certbot python3-certbot-apache
+  fi
+
+  command -v certbot >/dev/null 2>&1 || {
+    echo "certbot installation failed" >&2
+    exit 1
+  }
+}
+
 ensure_nginx() {
   command -v nginx >/dev/null 2>&1 || apt_install nginx
   systemctl enable --now nginx
