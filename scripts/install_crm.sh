@@ -393,11 +393,6 @@ git checkout "$BRANCH"
 git reset --hard "origin/$BRANCH"
 mkdir -p scripts/generated deploy backups docs
 
-APP_KEY_VALUE="base64:$($PHP_BIN -r 'echo base64_encode(random_bytes(32));' 2>/dev/null || true)"
-if [[ "$APP_KEY_VALUE" == "base64:" ]]; then
-  APP_KEY_VALUE="base64:$(random_b64)"
-fi
-
 BACKUP_ENV_FILE="/etc/crm-backup.env"
 install_backup_env() {
   if [[ "$BACKUP_TARGET" == "local" ]]; then
@@ -608,7 +603,7 @@ install_docker() {
   cat > .env.docker <<EOF
 APP_NAME="${APP_NAME}"
 APP_ENV=production
-APP_KEY=${APP_KEY_VALUE}
+APP_KEY=
 APP_DEBUG=false
 APP_URL=http://${DOMAIN}
 APP_LOCALE=en
@@ -680,6 +675,7 @@ volumes:
 EOF
 
   docker compose up -d --build
+  docker compose exec -T crm-app php artisan key:generate --force
 
   if [[ "$SKIP_VHOST" != "1" ]]; then
     if [[ "$WEB_SERVER" == "nginx" ]]; then
@@ -704,13 +700,13 @@ install_regular() {
   perl -0pi -e 's/^APP_ENV=.*$/APP_ENV=production/m' .env
   perl -0pi -e 's/^APP_DEBUG=.*$/APP_DEBUG=false/m' .env
   perl -0pi -e 's/^APP_URL=.*$/APP_URL=http:\/\/'"${DOMAIN//\//\/}"'/m' .env
-  perl -0pi -e 's/^APP_KEY=.*$/APP_KEY='"${APP_KEY_VALUE//\//\/}"'/m' .env
   perl -0pi -e 's/^SESSION_DOMAIN=.*$/SESSION_DOMAIN='"${DOMAIN//\//\/}"'/m' .env
   perl -0pi -e 's/^DB_CONNECTION=.*?\n(?:# DB_HOST=.*?\n)?(?:# DB_PORT=.*?\n)?(?:# DB_DATABASE=.*?\n)?(?:# DB_USERNAME=.*?\n)?(?:# DB_PASSWORD=.*?\n)?/DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_DATABASE='"${DB_NAME}"'\nDB_USERNAME='"${DB_USER}"'\nDB_PASSWORD='"${DB_PASS}"'\n/sm' .env
 
   composer install --no-interaction --prefer-dist --optimize-autoloader
   npm ci
   npm run build
+  "$PHP_BIN" artisan key:generate --force
   "$PHP_BIN" artisan migrate --force
   "$PHP_BIN" artisan db:seed --class=Database\\Seeders\\DatabaseSeeder --force
   "$PHP_BIN" artisan db:seed --class=Database\\Seeders\\InitialSetupSeeder --force

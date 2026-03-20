@@ -67,6 +67,7 @@ On a fresh Ubuntu host, the installer will now attempt to install:
 - MySQL client
 - nginx or apache if selected
 - AWS CLI if S3 backups are selected
+- it generates the Laravel `APP_KEY` using `php artisan key:generate --force`
 
 This makes the installer much more suitable for clean Ubuntu servers.
 
@@ -249,3 +250,4 @@ This branch now includes:
 - perform one real end-to-end dry run in Docker mode
 - perform one real end-to-end dry run in Regular mode
 - tighten any environment-specific package/version assumptions found during those tests
+g those tests
