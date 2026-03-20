@@ -4,9 +4,12 @@ This repo includes an interactive-first installer:
 
 - `scripts/install_crm.sh`
 
+It now targets a **fresh Ubuntu host** much better than before.
+
 It supports:
 - **Docker installation**
 - **Regular installation**
+- **host bootstrap / prerequisite installation**
 - **local backups**
 - **private S3 backups**
 - **local + S3 backups together**
@@ -22,7 +25,7 @@ Run:
 sudo bash scripts/install_crm.sh
 ```
 
-The installer will ask for:
+The installer asks for:
 - install mode (`docker` or `regular`)
 - domain
 - app directory
@@ -37,7 +40,35 @@ The installer will ask for:
 - whether to create cron
 - whether to create/update the vhost
 
-It also still supports non-interactive flags for automation.
+It still supports non-interactive flags for automation.
+
+---
+
+## Fresh Ubuntu behavior
+
+### Docker mode
+On a fresh Ubuntu host, the installer will now attempt to install:
+- `git`
+- `curl`
+- `ca-certificates`
+- Docker Engine
+- Docker Compose plugin
+- nginx or apache if selected
+- AWS CLI if S3 backups are selected
+
+### Regular mode
+On a fresh Ubuntu host, the installer will now attempt to install:
+- `git`
+- `curl`
+- `ca-certificates`
+- PHP CLI / FPM and common Laravel extensions
+- Composer
+- Node.js / npm
+- MySQL client
+- nginx or apache if selected
+- AWS CLI if S3 backups are selected
+
+This makes the installer much more suitable for clean Ubuntu servers.
 
 ---
 
@@ -69,6 +100,7 @@ So the bucket does **not** need to be public.
 ## Docker mode
 
 ### What it does
+- bootstraps Docker if missing
 - clones/updates the repo
 - writes `.env.docker`
 - writes `docker-compose.override.yml`
@@ -97,6 +129,7 @@ unless you intentionally want to destroy DB/storage.
 ## Regular mode
 
 ### What it does
+- bootstraps most host prerequisites if missing
 - clones/updates the repo
 - writes `.env`
 - runs Composer / npm
@@ -107,13 +140,6 @@ unless you intentionally want to destroy DB/storage.
   - `scripts/backup_db.sh`
   - `scripts/restore_db.sh`
   - `scripts/redeploy_crm.sh`
-
-### Assumes host already has
-- PHP
-- Composer
-- npm/node
-- MySQL access
-- nginx or apache
 
 ---
 
@@ -201,10 +227,19 @@ sudo bash scripts/install_crm.sh \
 
 ---
 
-## Suggested next refinement after this
+## Recommended test order
 
-The next hardening pass should be:
-- test installer on a clean VM in Docker mode
-- test installer on a clean VM in regular mode
-- improve restore workflow with pre-restore safety prompts
-- optionally add TLS helper notes/templates
+1. test Docker mode on a fresh Ubuntu VM
+2. verify redeploy preserves DB/storage
+3. test backup locally
+4. test S3 upload with a private bucket
+5. test Regular mode on a separate fresh Ubuntu VM
+
+---
+
+## Next hardening pass still recommended
+
+Before production use, the best next refinements are:
+- add a destructive-action confirmation to `restore_db.sh`
+- refine S3-compatible endpoint/path-style behavior
+- perform one real end-to-end dry run in Docker mode and one in Regular mode

@@ -139,6 +139,88 @@ confirm_yes_no() {
   done
 }
 
+
+apt_install() {
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  apt-get install -y "$@"
+}
+
+ensure_base_packages() {
+  apt_install ca-certificates curl gnupg lsb-release git unzip sed openssl
+}
+
+ensure_docker_installed() {
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    return 0
+  fi
+
+  ensure_base_packages
+  install -m 0755 -d /etc/apt/keyrings
+  if [[ ! -f /etc/apt/keyrings/docker.asc ]]; then
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+  fi
+
+  . /etc/os-release
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+    > /etc/apt/sources.list.d/docker.list
+
+  apt-get update -y
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  systemctl enable --now docker
+}
+
+ensure_aws_cli() {
+  command -v aws >/dev/null 2>&1 && return 0
+  apt_install awscli
+}
+
+ensure_nginx() {
+  command -v nginx >/dev/null 2>&1 || apt_install nginx
+  systemctl enable --now nginx
+}
+
+ensure_apache() {
+  if command -v apache2ctl >/dev/null 2>&1 || command -v httpd >/dev/null 2>&1; then
+    :
+  else
+    apt_install apache2
+  fi
+  systemctl enable --now apache2 2>/dev/null || systemctl enable --now httpd
+}
+
+ensure_regular_stack() {
+  ensure_base_packages
+  apt_install software-properties-common
+  apt_install php-cli php-fpm php-mysql php-xml php-mbstring php-curl php-zip php-gd php-intl php-bcmath php-sqlite3 composer nodejs npm mysql-client
+}
+
+bootstrap_host() {
+  ensure_base_packages
+
+  if [[ "$MODE" == "docker" ]]; then
+    ensure_docker_installed
+    if [[ "$WEB_SERVER" == "nginx" ]]; then
+      ensure_nginx
+    elif [[ "$WEB_SERVER" == "apache" ]]; then
+      ensure_apache
+    fi
+  else
+    ensure_regular_stack
+    if [[ "$WEB_SERVER" == "nginx" ]]; then
+      ensure_nginx
+    elif [[ "$WEB_SERVER" == "apache" ]]; then
+      ensure_apache
+    fi
+  fi
+
+  if [[ "$BACKUP_TARGET" == "s3" || "$BACKUP_TARGET" == "both" ]]; then
+    ensure_aws_cli
+  fi
+}
+
 detect_web_server() {
   if systemctl list-unit-files 2>/dev/null | grep -q '^nginx.service'; then
     echo nginx
@@ -210,10 +292,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 require_root
-need_cmd git
-need_cmd openssl
-need_cmd sed
-need_cmd tee
 
 if [[ "$NON_INTERACTIVE" != "1" ]]; then
   echo "== CRM interactive installer =="
@@ -291,6 +369,16 @@ if [[ "$BACKUP_TARGET" == "s3" || "$BACKUP_TARGET" == "both" ]]; then
     echo "S3 backups require bucket URI, region, access key id, and secret access key." >&2
     exit 1
   }
+fi
+
+bootstrap_host
+need_cmd git
+need_cmd openssl
+need_cmd sed
+need_cmd tee
+
+if [[ "$MODE" == "regular" ]]; then
+  PHP_BIN=$(command -v php || echo "$PHP_BIN")
 fi
 
 mkdir -p "$APP_DIR"
