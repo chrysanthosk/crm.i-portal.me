@@ -541,7 +541,7 @@ read -r -p "Type RESTORE to continue: " CONFIRM
 
 if [[ "\${MODE}" == "docker" ]]; then
   cd "\${APP_DIR}"
-  gunzip -c "\${BACKUP_FILE}" | docker compose exec -T crm-db sh -lc 'exec mysql -uroot -p"'"'"\${DB_ROOT_PASS}"'"'" "'"'"\${DB_NAME}"'"'"'
+  gunzip -c "\${BACKUP_FILE}" | docker compose exec -T crm-db sh -lc 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
 else
   gunzip -c "\${BACKUP_FILE}" | mysql -u"\${DB_USER}" -p"\${DB_PASS}" "\${DB_NAME}"
 fi
@@ -568,6 +568,7 @@ git checkout "\${BRANCH}"
 git reset --hard "origin/\${BRANCH}"
 
 if [[ "\${MODE}" == "docker" ]]; then
+  [[ -f .env.docker ]] || { echo ".env.docker not found; rerun installer first" >&2; exit 1; }
   docker compose build crm-app
   docker compose stop crm-app || true
   docker compose rm -sf crm-app || true
@@ -577,16 +578,17 @@ else
   npm ci
   npm run build
   "\${PHP_BIN}" artisan migrate --force
-  "\${PHP_BIN}" artisan db:seed --class=Database\\Seeders\\DatabaseSeeder --force
-  "\${PHP_BIN}" artisan db:seed --class=Database\\Seeders\\InitialSetupSeeder --force
-  "\${PHP_BIN}" artisan db:seed --class=Database\\Seeders\\PaymentMethodSeeder --force
-  "\${PHP_BIN}" artisan db:seed --class=Database\\Seeders\\SmsProviderSeeder --force
+  "\${PHP_BIN}" artisan db:seed --class=Database\Seeders\DatabaseSeeder --force
+  "\${PHP_BIN}" artisan db:seed --class=Database\Seeders\InitialSetupSeeder --force
+  "\${PHP_BIN}" artisan db:seed --class=Database\Seeders\PaymentMethodSeeder --force
+  "\${PHP_BIN}" artisan db:seed --class=Database\Seeders\SmsProviderSeeder --force
 fi
 
 echo "Redeploy finished for branch: \${BRANCH}"
 EOF
   chmod +x "$redeploy_script"
 }
+
 
 write_nginx_vhost() {
   local upstream_port="$1"
@@ -698,7 +700,7 @@ APP_NAME="${APP_NAME}"
 APP_ENV=production
 APP_KEY=
 APP_DEBUG=false
-APP_URL=http://${DOMAIN}
+APP_URL=https://${DOMAIN}
 APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 APP_FAKER_LOCALE=en_US
@@ -746,7 +748,7 @@ services:
       APP_NAME: "${APP_NAME}"
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_URL: http://${DOMAIN}
+      APP_URL: https://${DOMAIN}
       DB_CONNECTION: mysql
       DB_HOST: crm-db
       DB_PORT: 3306
