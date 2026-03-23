@@ -437,6 +437,7 @@ install_backup_env() {
     return 0
   fi
 
+  install -m 600 /dev/null "$BACKUP_ENV_FILE"
   cat > "$BACKUP_ENV_FILE" <<EOF
 AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
 AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
