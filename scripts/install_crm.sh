@@ -473,7 +473,7 @@ trap 'rm -f "\${TMP_OUT}"' EXIT
 
 if [[ "\${MODE}" == "docker" ]]; then
   cd "\${APP_DIR}"
-  docker compose exec -T crm-db sh -lc 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --quick --routines --triggers "$MYSQL_DATABASE"' | gzip -9 > "\${TMP_OUT}"
+  docker compose exec -T crm-db sh -lc 'exec mysqldump -uroot -p"\$MYSQL_ROOT_PASSWORD" --single-transaction --quick --routines --triggers "\$MYSQL_DATABASE"' | gzip -9 > "\${TMP_OUT}"
 else
   mysqldump -u"\${DB_USER}" -p"\${DB_PASS}" --single-transaction --quick --routines --triggers "\${DB_NAME}" | gzip -9 > "\${TMP_OUT}"
 fi
@@ -541,7 +541,7 @@ read -r -p "Type RESTORE to continue: " CONFIRM
 
 if [[ "\${MODE}" == "docker" ]]; then
   cd "\${APP_DIR}"
-  gunzip -c "\${BACKUP_FILE}" | docker compose exec -T crm-db sh -lc 'exec mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
+  gunzip -c "\${BACKUP_FILE}" | docker compose exec -T crm-db sh -lc 'exec mysql -uroot -p"\$MYSQL_ROOT_PASSWORD" "\$MYSQL_DATABASE"'
 else
   gunzip -c "\${BACKUP_FILE}" | mysql -u"\${DB_USER}" -p"\${DB_PASS}" "\${DB_NAME}"
 fi
