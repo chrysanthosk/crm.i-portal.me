@@ -467,14 +467,20 @@ BACKUP_ENV_FILE="${BACKUP_ENV_FILE}"
 STAMP=\$(date +%F-%H%M%S)
 HOSTNAME_SHORT=\$(hostname -s)
 OUT="\${BACKUP_DIR}/\${DB_NAME}-\${HOSTNAME_SHORT}-\${STAMP}.sql.gz"
+TMP_OUT="\${OUT}.tmp"
 mkdir -p "\${BACKUP_DIR}"
+trap 'rm -f "\${TMP_OUT}"' EXIT
 
 if [[ "\${MODE}" == "docker" ]]; then
   cd "\${APP_DIR}"
-  docker compose exec -T crm-db sh -lc 'exec mysqldump -uroot -p"'"'"\${DB_ROOT_PASS}"'"'" --single-transaction --quick --routines --triggers "'"'"\${DB_NAME}"'"'"' | gzip -9 > "\${OUT}"
+  docker compose exec -T crm-db sh -lc 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --quick --routines --triggers "$MYSQL_DATABASE"' | gzip -9 > "\${TMP_OUT}"
 else
-  mysqldump -u"\${DB_USER}" -p"\${DB_PASS}" --single-transaction --quick --routines --triggers "\${DB_NAME}" | gzip -9 > "\${OUT}"
+  mysqldump -u"\${DB_USER}" -p"\${DB_PASS}" --single-transaction --quick --routines --triggers "\${DB_NAME}" | gzip -9 > "\${TMP_OUT}"
 fi
+
+[[ -s "\${TMP_OUT}" ]] || { echo "Backup failed: output file is empty" >&2; exit 1; }
+mv "\${TMP_OUT}" "\${OUT}"
+trap - EXIT
 
 find "\${BACKUP_DIR}" -type f -name '*.sql.gz' -mtime +"\${RETENTION_DAYS}" -delete
 
