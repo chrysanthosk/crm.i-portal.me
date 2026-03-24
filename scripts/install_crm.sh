@@ -76,6 +76,7 @@ prompt() {
   local label="$2"
   local default_value="${3:-}"
   local secret="${4:-0}"
+  local allow_empty="${5:-0}"
   local value=""
 
   if [[ -n "$default_value" ]]; then
@@ -89,14 +90,23 @@ prompt() {
     fi
   else
     if [[ "$secret" == "1" ]]; then
-      while [[ -z "$value" ]]; do
+      if [[ "$allow_empty" == "1" ]]; then
         read -r -s -p "${label}: " value
         echo
-      done
+      else
+        while [[ -z "$value" ]]; do
+          read -r -s -p "${label}: " value
+          echo
+        done
+      fi
     else
-      while [[ -z "$value" ]]; do
+      if [[ "$allow_empty" == "1" ]]; then
         read -r -p "${label}: " value
-      done
+      else
+        while [[ -z "$value" ]]; do
+          read -r -p "${label}: " value
+        done
+      fi
     fi
   fi
 
@@ -180,7 +190,13 @@ ensure_docker_installed() {
 
 ensure_aws_cli() {
   command -v aws >/dev/null 2>&1 && return 0
-  apt_install awscli
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -y
+  if apt-cache policy awscli 2>/dev/null | grep -q Candidate:; then
+    apt-get install -y awscli && command -v aws >/dev/null 2>&1 && return 0
+  fi
+  echo "aws CLI could not be installed automatically. Install it manually before using S3 backups." >&2
+  return 1
 }
 
 ensure_certbot() {
@@ -243,7 +259,7 @@ bootstrap_host() {
   fi
 
   if [[ "$BACKUP_TARGET" == "s3" || "$BACKUP_TARGET" == "both" ]]; then
-    ensure_aws_cli
+    ensure_aws_cli || true
   fi
 }
 
@@ -362,7 +378,7 @@ if [[ "$NON_INTERACTIVE" != "1" ]]; then
     prompt AWS_REGION "AWS region" "${AWS_REGION:-eu-central-1}"
     prompt AWS_ACCESS_KEY_ID "AWS access key id" "$AWS_ACCESS_KEY_ID"
     prompt AWS_SECRET_ACCESS_KEY "AWS secret access key" "$AWS_SECRET_ACCESS_KEY" 1
-    prompt AWS_ENDPOINT_URL "Custom S3 endpoint URL (optional)" "$AWS_ENDPOINT_URL"
+    prompt AWS_ENDPOINT_URL "Custom S3 endpoint URL (optional)" "$AWS_ENDPOINT_URL" 0 1
     choose_one AWS_PATH_STYLE "Use path-style S3 requests" "$AWS_PATH_STYLE" true false
   fi
   confirm_yes_no create_backup_cron "Install nightly DB backup cron?" yes
@@ -504,6 +520,7 @@ fi
 echo "Backup created: \${OUT}"
 EOF
   chmod +x "$backup_script"
+  bash -n "$backup_script"
 
   if [[ "$SKIP_BACKUP_CRON" != "1" ]]; then
     cat > /etc/cron.d/crm-db-backup <<EOF
@@ -550,6 +567,7 @@ fi
 echo "Restore complete from \${BACKUP_FILE}"
 EOF
   chmod +x "$restore_script"
+  bash -n "$restore_script"
 }
 
 install_redeploy_script() {
@@ -588,6 +606,7 @@ fi
 echo "Redeploy finished for branch: \${BRANCH}"
 EOF
   chmod +x "$redeploy_script"
+  bash -n "$redeploy_script"
 }
 
 
