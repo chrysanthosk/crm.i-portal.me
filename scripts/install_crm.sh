@@ -190,13 +190,26 @@ ensure_docker_installed() {
 
 ensure_aws_cli() {
   command -v aws >/dev/null 2>&1 && return 0
+
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -y
-  if apt-cache policy awscli 2>/dev/null | grep -q Candidate:; then
-    apt-get install -y awscli && command -v aws >/dev/null 2>&1 && return 0
+  if apt-cache policy awscli 2>/dev/null | grep -Eq 'Candidate: (.+)'; then
+    if apt-get install -y awscli; then
+      command -v aws >/dev/null 2>&1 && return 0
+    fi
   fi
-  echo "aws CLI could not be installed automatically. Install it manually before using S3 backups." >&2
-  return 1
+
+  echo "Falling back to official AWS CLI installer..."
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  trap 'rm -rf "$tmpdir"' RETURN
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "$tmpdir/awscliv2.zip"
+  unzip -q -o "$tmpdir/awscliv2.zip" -d "$tmpdir"
+  "$tmpdir/aws/install" --update
+  command -v aws >/dev/null 2>&1 || {
+    echo "aws CLI could not be installed automatically." >&2
+    return 1
+  }
 }
 
 ensure_certbot() {
