@@ -287,6 +287,7 @@ This branch now includes:
 - fresh-Ubuntu bootstrap for Docker and Regular installation modes
 - Laravel-native APP_KEY generation
 - SSL mode support for `none`, `existing`, and `letsencrypt`
+- automatic AWS CLI installation with official-installer fallback when apt is insufficient
 
 ## Still recommended before production use
 
