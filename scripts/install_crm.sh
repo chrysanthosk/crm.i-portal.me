@@ -605,6 +605,10 @@ if [[ "\${MODE}" == "docker" ]]; then
   docker compose stop crm-app || true
   docker compose rm -sf crm-app || true
   docker compose up -d --no-deps crm-app
+  docker compose exec -T crm-app php artisan config:clear
+  docker compose exec -T crm-app php artisan cache:clear
+  docker compose exec -T crm-app php artisan route:clear
+  docker compose exec -T crm-app php artisan view:clear
 else
   composer install --no-interaction --prefer-dist --optimize-autoloader
   npm ci
