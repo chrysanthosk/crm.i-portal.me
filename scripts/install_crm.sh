@@ -342,6 +342,10 @@ while [[ $# -gt 0 ]]; do
     --aws-secret-access-key) AWS_SECRET_ACCESS_KEY="$2"; shift 2 ;;
     --aws-endpoint-url) AWS_ENDPOINT_URL="$2"; shift 2 ;;
     --aws-path-style) AWS_PATH_STYLE="$2"; shift 2 ;;
+    --ssl-mode) SSL_MODE="$2"; shift 2 ;;
+    --ssl-cert-path) SSL_CERT_PATH="$2"; shift 2 ;;
+    --ssl-key-path) SSL_KEY_PATH="$2"; shift 2 ;;
+    --ssl-email) SSL_EMAIL="$2"; shift 2 ;;
     --skip-backup-cron) SKIP_BACKUP_CRON="1"; shift ;;
     --skip-vhost) SKIP_VHOST="1"; shift ;;
     --non-interactive) NON_INTERACTIVE="1"; shift ;;
