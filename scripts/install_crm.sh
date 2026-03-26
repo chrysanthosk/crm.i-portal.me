@@ -620,10 +620,10 @@ if [[ "\${MODE}" == "docker" ]]; then
   CONTAINER_DB_PASSWORD=$(docker compose exec -T crm-app sh -lc 'grep -E "^DB_PASSWORD=" /var/www/html/.env | head -n1 | cut -d= -f2-')
   CONTAINER_APP_URL=$(docker compose exec -T crm-app sh -lc 'grep -E "^APP_URL=" /var/www/html/.env | head -n1 | cut -d= -f2-')
 
-  [[ "$HOST_DB_DATABASE" == "$CONTAINER_DB_DATABASE" ]] || { echo "crm-app env mismatch: DB_DATABASE host='$HOST_DB_DATABASE' container='$CONTAINER_DB_DATABASE'" >&2; exit 1; }
-  [[ "$HOST_DB_USERNAME" == "$CONTAINER_DB_USERNAME" ]] || { echo "crm-app env mismatch: DB_USERNAME host='$HOST_DB_USERNAME' container='$CONTAINER_DB_USERNAME'" >&2; exit 1; }
-  [[ "$HOST_DB_PASSWORD" == "$CONTAINER_DB_PASSWORD" ]] || { echo "crm-app env mismatch: DB_PASSWORD host and container differ" >&2; exit 1; }
-  [[ "$HOST_APP_URL" == "$CONTAINER_APP_URL" ]] || { echo "crm-app env mismatch: APP_URL host='$HOST_APP_URL' container='$CONTAINER_APP_URL'" >&2; exit 1; }
+  [[ "\$HOST_DB_DATABASE" == "\$CONTAINER_DB_DATABASE" ]] || { echo "crm-app env mismatch: DB_DATABASE host='\$HOST_DB_DATABASE' container='\$CONTAINER_DB_DATABASE'" >&2; exit 1; }
+  [[ "\$HOST_DB_USERNAME" == "\$CONTAINER_DB_USERNAME" ]] || { echo "crm-app env mismatch: DB_USERNAME host='\$HOST_DB_USERNAME' container='\$CONTAINER_DB_USERNAME'" >&2; exit 1; }
+  [[ "\$HOST_DB_PASSWORD" == "\$CONTAINER_DB_PASSWORD" ]] || { echo "crm-app env mismatch: DB_PASSWORD host and container differ" >&2; exit 1; }
+  [[ "\$HOST_APP_URL" == "\$CONTAINER_APP_URL" ]] || { echo "crm-app env mismatch: APP_URL host='\$HOST_APP_URL' container='\$CONTAINER_APP_URL'" >&2; exit 1; }
 
   docker compose exec -T crm-app php artisan config:clear
   docker compose exec -T crm-app php artisan cache:clear
