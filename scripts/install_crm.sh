@@ -465,6 +465,7 @@ git reset --hard "origin/$BRANCH"
 mkdir -p scripts/generated deploy backups docs
 
 BACKUP_ENV_FILE="/etc/crm-backup.env"
+DOCKER_ENV_FILE="/etc/crm-docker.env"
 install_backup_env() {
   if [[ "$BACKUP_TARGET" == "local" ]]; then
     return 0
@@ -480,6 +481,36 @@ AWS_ENDPOINT_URL=${AWS_ENDPOINT_URL}
 AWS_USE_PATH_STYLE_ENDPOINT=${AWS_PATH_STYLE}
 EOF
   chmod 600 "$BACKUP_ENV_FILE"
+}
+
+install_docker_env_file() {
+  if [[ "$MODE" != "docker" ]]; then
+    return 0
+  fi
+
+  local docker_app_key=""
+  if [[ -f "$DOCKER_ENV_FILE" ]]; then
+    docker_app_key=$(grep -E '^APP_KEY=' "$DOCKER_ENV_FILE" | head -n1 | cut -d= -f2- || true)
+  fi
+  if [[ -z "$docker_app_key" && -f "$APP_DIR/.env.docker" ]]; then
+    docker_app_key=$(grep -E '^APP_KEY=' "$APP_DIR/.env.docker" | head -n1 | cut -d= -f2- || true)
+  fi
+  if [[ -z "$docker_app_key" ]]; then
+    docker_app_key=$(php -r 'echo "base64:".base64_encode(random_bytes(32));')
+  fi
+
+  install -m 600 /dev/null "$DOCKER_ENV_FILE"
+  cat > "$DOCKER_ENV_FILE" <<EOF
+APP_NAME=${APP_NAME}
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://${DOMAIN}
+APP_KEY=${docker_app_key}
+DB_NAME=${DB_NAME}
+DB_USER=${DB_USER}
+DB_PASS=${DB_PASS}
+EOF
+  chmod 600 "$DOCKER_ENV_FILE"
 }
 
 install_backup_script() {
@@ -604,7 +635,45 @@ git checkout "\${BRANCH}"
 git reset --hard "origin/\${BRANCH}"
 
 if [[ "\${MODE}" == "docker" ]]; then
-[[ -f .env.docker ]] || { echo ".env.docker not found; rerun installer first" >&2; exit 1; }
+[[ -f "$DOCKER_ENV_FILE" ]] || { echo "$DOCKER_ENV_FILE not found; rerun installer first" >&2; exit 1; }
+source "$DOCKER_ENV_FILE"
+
+cat > .env.docker <<ENVEOF
+APP_NAME="\$APP_NAME"
+APP_ENV=\$APP_ENV
+APP_KEY=\$APP_KEY
+APP_DEBUG=\$APP_DEBUG
+APP_URL=\$APP_URL
+APP_LOCALE=en
+APP_FALLBACK_LOCALE=en
+APP_FAKER_LOCALE=en_US
+LOG_CHANNEL=stack
+LOG_STACK=single
+LOG_LEVEL=info
+DB_CONNECTION=mysql
+DB_HOST=crm-db
+DB_PORT=3306
+DB_DATABASE=\$DB_NAME
+DB_USERNAME=\$DB_USER
+DB_PASSWORD=\$DB_PASS
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+SESSION_ENCRYPT=false
+SESSION_PATH=/
+SESSION_DOMAIN=${DOMAIN}
+BROADCAST_CONNECTION=log
+FILESYSTEM_DISK=local
+QUEUE_CONNECTION=database
+CACHE_STORE=database
+MAIL_MAILER=log
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
+AWS_BUCKET=
+AWS_USE_PATH_STYLE_ENDPOINT=false
+VITE_APP_NAME="\$APP_NAME"
+ENVEOF
+
 docker compose build crm-app
 docker compose stop crm-app || true
 docker compose rm -sf crm-app || true
@@ -756,7 +825,7 @@ install_docker() {
   cat > .env.docker <<EOF
 APP_NAME="${APP_NAME}"
 APP_ENV=production
-APP_KEY=
+APP_KEY=\$APP_KEY
 APP_DEBUG=false
 APP_URL=https://${DOMAIN}
 APP_LOCALE=en
@@ -982,6 +1051,7 @@ EOF
 }
 
 install_backup_env
+install_docker_env_file
 install_backup_script
 install_restore_script
 install_redeploy_script
