@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
-const TRUSTED_2FA_COOKIE = 'tfd'; // trusted factor device
-const TRUSTED_2FA_DAYS = 30;
+defined('TRUSTED_2FA_COOKIE') || define('TRUSTED_2FA_COOKIE', 'tfd'); // trusted factor device
+defined('TRUSTED_2FA_DAYS') || define('TRUSTED_2FA_DAYS', 30);
 
 if (!function_exists('trustedDeviceCookie')) {
     function trustedDeviceCookie(Request $request, string $value, int $days)
