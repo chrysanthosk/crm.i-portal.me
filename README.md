@@ -24,6 +24,15 @@ Higher-level project documentation now lives under:
 
 Use these to understand module boundaries, project scope, personas, and the main workflows supported by the CRM.
 
+## QA documentation
+
+QA planning now lives under:
+
+- `docs/qa-test-plan.md`
+- `docs/qa-privileged-flow-matrix.md`
+
+Use these to define smoke coverage, regression priorities, and release-confidence checks for privileged flows.
+
 - Login (remember me + forgot password) + light/dark theme toggle
 - Users CRUD (admin)
 - Roles + Permission assignment (admin)
