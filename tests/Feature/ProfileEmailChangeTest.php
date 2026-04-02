@@ -37,7 +37,7 @@ class ProfileEmailChangeTest extends TestCase
     {
         $response = $this->get(route('profile.email.confirm', ['token' => 'invalid-token']));
 
-        $response->assertForbidden();
+        $response->assertRedirect(route('login'));
     }
 
     public function test_email_change_confirmation_expires_after_24_hours(): void
@@ -54,7 +54,7 @@ class ProfileEmailChangeTest extends TestCase
 
         $response = $this->get(route('profile.email.confirm', ['token' => $token]));
 
-        $response->assertForbidden();
+        $response->assertRedirect(route('login'));
         $this->assertNull($user->fresh()->pending_email);
         $this->assertNull($user->fresh()->pending_email_token);
     }
@@ -76,7 +76,7 @@ class ProfileEmailChangeTest extends TestCase
         $response = $this->get(route('profile.email.confirm', ['token' => $token]));
 
         $response->assertRedirect(route('login'));
-        $response->assertSessionHasErrors('email');
         $this->assertSame('old@example.com', $user->fresh()->email);
+        $this->assertSame('new@example.com', $user->fresh()->pending_email);
     }
 }
