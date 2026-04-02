@@ -234,15 +234,15 @@ sudo bash scripts/install_crm.sh \
   --app-dir /opt/crm.i-portal.me \
   --db-name crm \
   --db-user crm \
-  --db-pass 'secret' \
-  --db-root-pass 'rootsecret' \
+  --db-pass 'CHANGE_ME_DB_PASSWORD' \
+  --db-root-pass 'CHANGE_ME_DB_ROOT_PASSWORD' \
   --ssl-mode letsencrypt \
   --ssl-email admin@example.com \
   --backup-target both \
   --backup-s3-uri s3://my-private-bucket/crm \
   --aws-region eu-central-1 \
   --aws-access-key-id AKIA... \
-  --aws-secret-access-key 'super-secret'
+  --aws-secret-access-key 'CHANGE_ME_AWS_SECRET_ACCESS_KEY'
 ```
 
 ---
@@ -257,7 +257,7 @@ sudo bash scripts/install_crm.sh \
   --app-dir /var/www/crm.i-portal.me \
   --db-name crm \
   --db-user crm \
-  --db-pass 'secret' \
+  --db-pass 'CHANGE_ME_DB_PASSWORD' \
   --web-server nginx \
   --php-fpm-sock /run/php/php8.4-fpm.sock \
   --ssl-mode existing \
@@ -278,6 +278,13 @@ sudo bash scripts/install_crm.sh \
 6. test Regular mode on a separate fresh Ubuntu VM
 
 ---
+
+## Secret hygiene note
+
+- Do not commit real runtime environment files.
+- Do not reuse example passwords or keys in real environments.
+- Rotate any exposed values if they were ever used outside disposable local development.
+- Prefer environment-specific secret injection over editing tracked files.
 
 ## Current hardening status
 
