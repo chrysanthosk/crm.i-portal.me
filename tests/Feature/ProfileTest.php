@@ -71,6 +71,7 @@ class ProfileTest extends TestCase
 
         $user = User::factory()->create([
             'email' => 'old@example.com',
+            'email_verified_at' => now(),
             'pending_email' => 'new@example.com',
             'pending_email_requested_at' => now(),
         ]);
