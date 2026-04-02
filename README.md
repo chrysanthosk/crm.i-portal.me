@@ -2,6 +2,18 @@
 
 These files are meant to be **copied into a fresh Laravel project** (created via `composer create-project`) and will add:
 
+## Operational documentation
+
+Runbooks now live under:
+
+- `docs/runbooks/README.md`
+- `docs/runbooks/deploy.md`
+- `docs/runbooks/backup.md`
+- `docs/runbooks/restore.md`
+- `docs/runbooks/redeploy.md`
+
+Use those docs for ongoing operations rather than relying only on installer script internals.
+
 - Login (remember me + forgot password) + light/dark theme toggle
 - Users CRUD (admin)
 - Roles + Permission assignment (admin)
