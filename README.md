@@ -14,6 +14,16 @@ Runbooks now live under:
 
 Use those docs for ongoing operations rather than relying only on installer script internals.
 
+## Product / architecture documentation
+
+Higher-level project documentation now lives under:
+
+- `docs/architecture.md`
+- `docs/scope-and-workflows.md`
+- `docs/workflow-matrix.md`
+
+Use these to understand module boundaries, project scope, personas, and the main workflows supported by the CRM.
+
 - Login (remember me + forgot password) + light/dark theme toggle
 - Users CRUD (admin)
 - Roles + Permission assignment (admin)
