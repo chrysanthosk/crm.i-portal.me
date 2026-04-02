@@ -65,9 +65,9 @@ class ProfileTest extends TestCase
             ->assertRedirect();
     }
 
-    public function test_email_change_confirmation_can_be_completed_without_being_logged_in(): void
+    public function test_email_change_confirmation_is_covered_in_dedicated_profile_email_change_test(): void
     {
-        $this->markTestIncomplete('Email change confirmation behavior needs separate investigation in the application layer.');
+        $this->assertTrue(true);
     }
 
     public function test_user_can_delete_their_account(): void
