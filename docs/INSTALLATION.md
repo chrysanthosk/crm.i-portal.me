@@ -286,6 +286,19 @@ sudo bash scripts/install_crm.sh \
 - Rotate any exposed values if they were ever used outside disposable local development.
 - Prefer environment-specific secret injection over editing tracked files.
 
+## Production safety defaults
+
+For production-like deployments, use at least:
+
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_URL=https://your-domain`
+- `SESSION_DOMAIN=your-domain`
+- `SESSION_SECURE_COOKIE=true`
+- `SESSION_SAME_SITE=lax`
+
+If TLS terminates in front of the app, keep URL/proxy headers aligned so cookies stay secure and redirects behave correctly.
+
 ## Current hardening status
 
 This branch now includes:
