@@ -8,6 +8,9 @@ on:
       - 'ck-*'
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -20,7 +23,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, mysql
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, sqlite3
           coverage: none
 
       - name: Setup Node
@@ -29,23 +32,31 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
-          touch database/database.sqlite
-          perl -0pi -e 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/m' .env
-
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Install JS dependencies
         run: npm ci
 
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          mkdir -p database bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views
+          touch database/database.sqlite
+          php artisan key:generate
+
       - name: Build assets
         run: npm run build
 
       - name: Run tests
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+          MAIL_MAILER: array
         run: php artisan test
 
   secret-scan:
@@ -54,8 +65,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-          
-      - name: Gitleaks scan
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
