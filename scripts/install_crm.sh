@@ -661,6 +661,8 @@ SESSION_LIFETIME=120
 SESSION_ENCRYPT=false
 SESSION_PATH=/
 SESSION_DOMAIN=${DOMAIN}
+SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=lax
 BROADCAST_CONNECTION=log
 FILESYSTEM_DISK=local
 QUEUE_CONNECTION=database
@@ -845,6 +847,8 @@ SESSION_LIFETIME=120
 SESSION_ENCRYPT=false
 SESSION_PATH=/
 SESSION_DOMAIN=${DOMAIN}
+SESSION_SECURE_COOKIE=true
+SESSION_SAME_SITE=lax
 BROADCAST_CONNECTION=log
 FILESYSTEM_DISK=local
 QUEUE_CONNECTION=database
@@ -923,6 +927,8 @@ install_regular() {
   perl -0pi -e 's/^APP_DEBUG=.*$/APP_DEBUG=false/m' .env
   perl -0pi -e 's/^APP_URL=.*$/APP_URL=http:\/\/'"${DOMAIN//\//\/}"'/m' .env
   perl -0pi -e 's/^SESSION_DOMAIN=.*$/SESSION_DOMAIN='"${DOMAIN//\//\/}"'/m' .env
+  grep -q '^SESSION_SECURE_COOKIE=' .env && perl -0pi -e 's/^SESSION_SECURE_COOKIE=.*$/SESSION_SECURE_COOKIE=true/m' .env || printf '\nSESSION_SECURE_COOKIE=true\n' >> .env
+  grep -q '^SESSION_SAME_SITE=' .env && perl -0pi -e 's/^SESSION_SAME_SITE=.*$/SESSION_SAME_SITE=lax/m' .env || printf 'SESSION_SAME_SITE=lax\n' >> .env
   perl -0pi -e 's/^DB_CONNECTION=.*?\n(?:# DB_HOST=.*?\n)?(?:# DB_PORT=.*?\n)?(?:# DB_DATABASE=.*?\n)?(?:# DB_USERNAME=.*?\n)?(?:# DB_PASSWORD=.*?\n)?/DB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_DATABASE='"${DB_NAME}"'\nDB_USERNAME='"${DB_USER}"'\nDB_PASSWORD='"${DB_PASS}"'\n/sm' .env
 
   composer install --no-interaction --prefer-dist --optimize-autoloader
