@@ -22,8 +22,8 @@ Core options:
 Database options:
   --db-name crm
   --db-user crm
-  --db-pass 'secret'
-  --db-root-pass 'rootsecret'      Docker mode only
+  --db-pass 'CHANGE_ME_DB_PASSWORD'
+  --db-root-pass 'CHANGE_ME_DB_ROOT_PASSWORD'      Docker mode only
 
 Web / runtime:
   --web-server auto|nginx|apache
@@ -44,7 +44,7 @@ Backups:
   --backup-s3-uri s3://bucket/path
   --aws-region eu-central-1
   --aws-access-key-id AKIA...
-  --aws-secret-access-key secret
+  --aws-secret-access-key CHANGE_ME_AWS_SECRET_ACCESS_KEY
   --aws-endpoint-url https://s3.example.com
   --aws-path-style true|false
 
