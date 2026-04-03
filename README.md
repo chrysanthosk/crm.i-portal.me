@@ -32,6 +32,7 @@ QA planning now lives under:
 - `docs/qa-privileged-flow-matrix.md`
 - `docs/permission-boundary-regression.md`
 - `docs/two-factor-regression.md`
+- `docs/smtp-sms-regression.md`
 
 Use these to define smoke coverage, regression priorities, and release-confidence checks for privileged flows.
 
