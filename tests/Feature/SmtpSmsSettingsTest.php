@@ -32,12 +32,12 @@ class SmtpSmsSettingsTest extends TestCase
             'port' => '587',
             'encryption' => 'tls',
             'username' => 'mailer@example.com',
-            'password' => 'super-secret-password',
+            'password' => 'fixture-mail-password',
             'from_address' => 'noreply@example.com',
             'from_name' => 'CRM Mailer',
         ]);
 
-        $response->assertRedirect(route('admin.settings.smtp.edit'));
+        $response->assertRedirect(route('settings.smtp.edit'));
         $response->assertSessionHas('status');
 
         $smtp = SmtpSetting::query()->first();
@@ -45,8 +45,8 @@ class SmtpSmsSettingsTest extends TestCase
         $this->assertSame('smtp.example.com', $smtp->host);
         $this->assertSame(587, $smtp->port);
         $this->assertTrue($smtp->enabled);
-        $this->assertNotSame('super-secret-password', $smtp->password_enc);
-        $this->assertSame('super-secret-password', Crypt::decryptString($smtp->password_enc));
+        $this->assertNotSame('fixture-mail-password', $smtp->password_enc);
+        $this->assertSame('fixture-mail-password', Crypt::decryptString($smtp->password_enc));
     }
 
     public function test_smtp_test_fails_safely_when_smtp_is_not_enabled(): void
@@ -60,12 +60,12 @@ class SmtpSmsSettingsTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)
-            ->from(route('admin.settings.smtp.edit'))
+            ->from(route('settings.smtp.edit'))
             ->post(route('settings.smtp.test'), [
                 'test_email' => 'test@example.com',
             ]);
 
-        $response->assertRedirect(route('admin.settings.smtp.edit'));
+        $response->assertRedirect(route('settings.smtp.edit'));
         $response->assertSessionHasErrors('smtp_test');
     }
 
@@ -81,8 +81,8 @@ class SmtpSmsSettingsTest extends TestCase
 
         $response = $this->actingAs($admin)->post(route('settings.sms.settings.save'), [
             'provider_id' => $provider->id,
-            'api_key' => 'api-key-123',
-            'api_secret' => 'api-secret-456',
+            'api_key' => 'fixture-key-123',
+            'api_secret' => 'fixture-secret-value',
             'sender_id' => 'CRM',
             'is_enabled' => '1',
         ]);
@@ -92,8 +92,8 @@ class SmtpSmsSettingsTest extends TestCase
 
         $setting = SmsSetting::query()->where('provider_id', $provider->id)->first();
         $this->assertNotNull($setting);
-        $this->assertSame('api-key-123', $setting->api_key);
-        $this->assertSame('api-secret-456', $setting->api_secret);
+        $this->assertSame('fixture-key-123', $setting->api_key);
+        $this->assertSame('fixture-secret-value', $setting->api_secret);
         $this->assertSame('CRM', $setting->sender_id);
         $this->assertTrue($setting->is_enabled);
     }
