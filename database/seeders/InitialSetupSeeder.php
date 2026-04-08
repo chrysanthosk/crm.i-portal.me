@@ -66,14 +66,17 @@ class InitialSetupSeeder extends Seeder
             ])->pluck('id')->all()
         );
 
+        $adminEmail    = env('SEED_ADMIN_EMAIL', 'admin@example.com');
+        $adminPassword = env('SEED_ADMIN_PASSWORD', 'ChangeMe123!!');
+
         User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => $adminEmail],
             [
                 'first_name' => 'Admin',
                 'last_name' => 'User',
                 'name' => 'Admin User',
                 'role' => 'owner',
-                'password' => Hash::make('ChangeMe123!!'),
+                'password' => Hash::make($adminPassword),
                 'email_verified_at' => now(),
                 'theme' => 'light',
             ]

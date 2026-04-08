@@ -22,7 +22,7 @@ class InventoryController extends Controller
 
     public function index()
     {
-        $alertThreshold = 5;
+        $alertThreshold = (int) env('INVENTORY_LOW_STOCK_THRESHOLD', 5);
 
         $lowCount = DB::table('products')
             ->where('quantity_stock', '<', $alertThreshold)

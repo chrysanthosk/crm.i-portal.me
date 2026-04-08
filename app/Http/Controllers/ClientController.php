@@ -286,8 +286,8 @@ class ClientController extends Controller
                 'address'           => ['nullable', 'string', 'max:255'],
                 'city'              => ['nullable', 'string', 'max:100'],
                 'gender'            => ['required', Rule::in(['Male','Female','Other'])],
-                'notes'             => ['nullable', 'string'],
-                'comments'          => ['nullable', 'string'],
+                'notes'             => ['nullable', 'string', 'max:2000'],
+                'comments'          => ['nullable', 'string', 'max:2000'],
             ]);
 
             if ($validator->fails()) {
@@ -342,8 +342,8 @@ class ClientController extends Controller
             'address'           => ['nullable', 'string', 'max:255'],
             'city'              => ['nullable', 'string', 'max:100'],
             'gender'            => ['required', Rule::in(['Male','Female','Other'])],
-            'notes'             => ['nullable', 'string'],
-            'comments'          => ['nullable', 'string'],
+            'notes'             => ['nullable', 'string', 'max:2000'],
+            'comments'          => ['nullable', 'string', 'max:2000'],
         ]);
     }
 }

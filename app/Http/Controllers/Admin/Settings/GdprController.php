@@ -48,14 +48,14 @@ class GdprController extends Controller
         $client->update([
             'first_name' => '[deleted]',
             'last_name'  => '[deleted]',
-            'mobile'     => '',
+            'mobile'     => null,
             'email'      => $placeholderEmail,
-            'address'    => '',
-            'city'       => '',
-            'notes'      => '',
-            'comments'   => '',
-            'dob'        => '1970-01-01',
-            'gender'     => 'Other', // keep valid with your Rule::in(['Male','Female','Other'])
+            'address'    => null,
+            'city'       => null,
+            'notes'      => null,
+            'comments'   => null,
+            'dob'        => null,
+            'gender'     => null,
         ]);
 
         Audit::log('gdpr', 'client.purge', 'client', $client->id, [
