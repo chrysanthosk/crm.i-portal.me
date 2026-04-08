@@ -4,6 +4,14 @@ services:
     container_name: crm-dev-db
     restart: unless-stopped
     environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-crm_dev_i_portal_me}
+      MYSQL_USER: ${DB_USERNAME:-crm_dev_i_portal_me}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+    volumes:
+      - crm_dev_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
       MYSQL_DATABASE: crm_dev_i_portal_me
       MYSQL_USER: crm_dev_i_portal_me
       MYSQL_PASSWORD: CHANGE_ME_DEV_DB_PASSWORD
@@ -33,6 +41,9 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: crm-db
       DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-crm_dev_i_portal_me}
+      DB_USERNAME: ${DB_USERNAME:-crm_dev_i_portal_me}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_DATABASE: crm_dev_i_portal_me
       DB_USERNAME: crm_dev_i_portal_me
       DB_PASSWORD: CHANGE_ME_DEV_DB_PASSWORD
