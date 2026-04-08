@@ -12,14 +12,6 @@ services:
       - crm_dev_db_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
-      MYSQL_DATABASE: crm_dev_i_portal_me
-      MYSQL_USER: crm_dev_i_portal_me
-      MYSQL_PASSWORD: CHANGE_ME_DEV_DB_PASSWORD
-      MYSQL_ROOT_PASSWORD: CHANGE_ME_DEV_DB_ROOT_PASSWORD
-    volumes:
-      - crm_dev_db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pCHANGE_ME_DEV_DB_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -44,9 +36,6 @@ services:
       DB_DATABASE: ${DB_DATABASE:-crm_dev_i_portal_me}
       DB_USERNAME: ${DB_USERNAME:-crm_dev_i_portal_me}
       DB_PASSWORD: ${DB_PASSWORD}
-      DB_DATABASE: crm_dev_i_portal_me
-      DB_USERNAME: crm_dev_i_portal_me
-      DB_PASSWORD: CHANGE_ME_DEV_DB_PASSWORD
       SESSION_DRIVER: database
       CACHE_STORE: database
       QUEUE_CONNECTION: database
