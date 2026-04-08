@@ -66,12 +66,12 @@ class InitialSetupSeeder extends Seeder
             ])->pluck('id')->all()
         );
 
-        $adminEmail    = env('ADMIN_EMAIL', 'admin@example.com');
-        $adminPassword = env('ADMIN_PASSWORD');
+        $adminEmail    = env('SEED_ADMIN_EMAIL', env('ADMIN_EMAIL', 'admin@example.com'));
+        $adminPassword = env('SEED_ADMIN_PASSWORD', env('ADMIN_PASSWORD'));
 
         if (empty($adminPassword)) {
             throw new \RuntimeException(
-                'ADMIN_PASSWORD env variable is required to seed the initial admin user.'
+                'SEED_ADMIN_PASSWORD env variable is required to seed the initial admin user.'
             );
         }
 
