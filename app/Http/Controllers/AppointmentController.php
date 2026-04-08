@@ -380,7 +380,7 @@ class AppointmentController extends Controller
             'registration_date' => now(),
             'first_name' => $first,
             'last_name' => $last,
-            'mobile' => $phone !== '' ? $phone : null,
+            'mobile' => $phone !== '' ? $phone : '',
         ]);
 
         return (int) $client->id;

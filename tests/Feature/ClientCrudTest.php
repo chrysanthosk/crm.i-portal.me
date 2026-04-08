@@ -12,6 +12,12 @@ class ClientCrudTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+    }
+
     private function admin(): User
     {
         return User::factory()->create(['role' => 'admin']);

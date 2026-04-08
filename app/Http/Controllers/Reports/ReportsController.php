@@ -1362,6 +1362,39 @@ class ReportsController extends Controller
      |--------------------------------------------------------------------------
      */
 
+    /**
+     * Parse and validate a date range from a Request's `from`/`to` query params.
+     * Returns [$startDt, $endDt, $startString, $endString].
+     * Inverted ranges are normalised; ranges exceeding $maxDays are capped.
+     */
+    private function parseDateRange(Request $request, int $defaultDays = 29, int $maxDays = 366): array
+    {
+        $end   = $request->query('to',   Carbon::now()->toDateString());
+        $start = $request->query('from', Carbon::now()->subDays($defaultDays)->toDateString());
+
+        try {
+            $startDt = Carbon::parse($start)->startOfDay();
+        } catch (\Throwable) {
+            $startDt = Carbon::now()->subDays($defaultDays)->startOfDay();
+        }
+
+        try {
+            $endDt = Carbon::parse($end)->endOfDay();
+        } catch (\Throwable) {
+            $endDt = Carbon::now()->endOfDay();
+        }
+
+        if ($startDt->gt($endDt)) {
+            $startDt = (clone $endDt)->subDays($defaultDays)->startOfDay();
+        }
+
+        if ($startDt->diffInDays($endDt) > $maxDays) {
+            $startDt = (clone $endDt)->subDays($maxDays)->startOfDay();
+        }
+
+        return [$startDt, $endDt, $startDt->toDateString(), $endDt->toDateString()];
+    }
+
     private function clampRange(string $from, string $to, int $maxDays = 366): array
     {
         $fromDt = Carbon::parse($from)->startOfDay();

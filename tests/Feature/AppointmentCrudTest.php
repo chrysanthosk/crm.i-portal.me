@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Appointment;
 use App\Models\Client;
+use App\Models\Role;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\Staff;
@@ -15,6 +16,12 @@ use Tests\TestCase;
 class AppointmentCrudTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+    }
 
     private function admin(): User
     {
@@ -42,7 +49,11 @@ class AppointmentCrudTest extends TestCase
             'duration'    => 30,
         ]);
         $staffUser = User::factory()->create(['role' => 'user']);
-        $staff     = Staff::create(['user_id' => $staffUser->id]);
+        $staffRole = Role::firstOrCreate(
+            ['role_key' => 'user'],
+            ['role_name' => 'User', 'role_desc' => 'Standard user']
+        );
+        $staff = Staff::create(['user_id' => $staffUser->id, 'role_id' => $staffRole->id]);
 
         return [$staff, $service, $category];
     }
