@@ -12,77 +12,83 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
-const TRUSTED_2FA_COOKIE = 'tfd'; // trusted factor device
-const TRUSTED_2FA_DAYS = 30;
+defined('TRUSTED_2FA_COOKIE') || define('TRUSTED_2FA_COOKIE', 'tfd'); // trusted factor device
+defined('TRUSTED_2FA_DAYS') || define('TRUSTED_2FA_DAYS', 30);
 
-function trustedDeviceCookie(Request $request, string $value, int $days)
-{
-    $minutes = $days * 24 * 60;
+if (!function_exists('trustedDeviceCookie')) {
+    function trustedDeviceCookie(Request $request, string $value, int $days)
+    {
+        $minutes = $days * 24 * 60;
 
-    // secure cookie on https only; httpOnly always
-    return cookie(
-        TRUSTED_2FA_COOKIE,
-        $value,
-        $minutes,
-        '/',           // path
-        null,          // domain
-        $request->isSecure(),
-        true,          // httpOnly
-        false,         // raw
-        'Lax'          // sameSite
-    );
+        // secure cookie on https only; httpOnly always
+        return cookie(
+            TRUSTED_2FA_COOKIE,
+            $value,
+            $minutes,
+            '/',           // path
+            null,          // domain
+            $request->isSecure(),
+            true,          // httpOnly
+            false,         // raw
+            'Lax'          // sameSite
+        );
+    }
 }
 
-function parseTrustedCookie(?string $cookieValue): ?array
-{
-    if (!$cookieValue) return null;
-    $parts = explode('|', $cookieValue, 2);
-    if (count($parts) !== 2) return null;
+if (!function_exists('parseTrustedCookie')) {
+    function parseTrustedCookie(?string $cookieValue): ?array
+    {
+        if (!$cookieValue) return null;
+        $parts = explode('|', $cookieValue, 2);
+        if (count($parts) !== 2) return null;
 
-    $id = (int)$parts[0];
-    $token = trim($parts[1]);
+        $id = (int)$parts[0];
+        $token = trim($parts[1]);
 
-    if ($id <= 0 || $token === '') return null;
-    return [$id, $token];
+        if ($id <= 0 || $token === '') return null;
+        return [$id, $token];
+    }
 }
 
-function isTrustedDeviceForUser(Request $request, User $user): bool
-{
-    $parsed = parseTrustedCookie($request->cookie(TRUSTED_2FA_COOKIE));
-    if (!$parsed) return false;
+if (!function_exists('isTrustedDeviceForUser')) {
+    function isTrustedDeviceForUser(Request $request, User $user): bool
+    {
+        $parsed = parseTrustedCookie($request->cookie(TRUSTED_2FA_COOKIE));
+        if (!$parsed) return false;
 
-    [$deviceId, $token] = $parsed;
+        [$deviceId, $token] = $parsed;
 
-    $device = TwoFactorTrustedDevice::query()
-        ->where('id', $deviceId)
-        ->where('user_id', $user->id)
-        ->first();
+        $device = TwoFactorTrustedDevice::query()
+            ->where('id', $deviceId)
+            ->where('user_id', $user->id)
+            ->first();
 
-    if (!$device) return false;
+        if (!$device) return false;
 
-    if ($device->expires_at && now()->greaterThan($device->expires_at)) {
-        return false;
-    }
-
-    $tokenHash = hash('sha256', $token);
-    if (!hash_equals($device->token_hash, $tokenHash)) {
-        return false;
-    }
-
-    // Optional binding to same browser (user agent)
-    if (!empty($device->user_agent_hash)) {
-        $uaHash = hash('sha256', (string)$request->userAgent());
-        if (!hash_equals($device->user_agent_hash, $uaHash)) {
+        if ($device->expires_at && now()->greaterThan($device->expires_at)) {
             return false;
         }
+
+        $tokenHash = hash('sha256', $token);
+        if (!hash_equals($device->token_hash, $tokenHash)) {
+            return false;
+        }
+
+        // Optional binding to same browser (user agent)
+        if (!empty($device->user_agent_hash)) {
+            $uaHash = hash('sha256', (string)$request->userAgent());
+            if (!hash_equals($device->user_agent_hash, $uaHash)) {
+                return false;
+            }
+        }
+
+        // Update last_used_at
+        $device->last_used_at = now();
+        $device->ip_address = $request->ip();
+        $device->save();
+
+        return true;
     }
-
-    // Update last_used_at
-    $device->last_used_at = now();
-    $device->ip_address = $request->ip();
-    $device->save();
-
-    return true;
 }
 
 Route::middleware('guest')->group(function () {

@@ -93,7 +93,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::post('/profile/email/request', [ProfileController::class, 'requestEmailChange'])->name('profile.email.request');
-    Route::get('/profile/email/confirm/{token}', [ProfileController::class, 'confirmEmailChange'])->name('profile.email.confirm');
 
     // 2FA
     Route::get('/profile/2fa', [TwoFactorController::class, 'show'])->name('profile.2fa.show');

@@ -2,6 +2,40 @@
 
 These files are meant to be **copied into a fresh Laravel project** (created via `composer create-project`) and will add:
 
+## Operational documentation
+
+Runbooks now live under:
+
+- `docs/runbooks/README.md`
+- `docs/runbooks/deploy.md`
+- `docs/runbooks/backup.md`
+- `docs/runbooks/restore.md`
+- `docs/runbooks/redeploy.md`
+
+Use those docs for ongoing operations rather than relying only on installer script internals.
+
+## Product / architecture documentation
+
+Higher-level project documentation now lives under:
+
+- `docs/architecture.md`
+- `docs/scope-and-workflows.md`
+- `docs/workflow-matrix.md`
+
+Use these to understand module boundaries, project scope, personas, and the main workflows supported by the CRM.
+
+## QA documentation
+
+QA planning now lives under:
+
+- `docs/qa-test-plan.md`
+- `docs/qa-privileged-flow-matrix.md`
+- `docs/permission-boundary-regression.md`
+- `docs/two-factor-regression.md`
+- `docs/smtp-sms-regression.md`
+
+Use these to define smoke coverage, regression priorities, and release-confidence checks for privileged flows.
+
 - Login (remember me + forgot password) + light/dark theme toggle
 - Users CRUD (admin)
 - Roles + Permission assignment (admin)

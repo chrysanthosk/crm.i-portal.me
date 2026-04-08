@@ -97,35 +97,41 @@ class ProfileController extends Controller
             ->first();
 
         if (!$user) {
-            abort(403, 'Invalid or expired email change token.');
+            return redirect()->route('login');
         }
 
         if (
             !$user->pending_email_requested_at ||
             $user->pending_email_requested_at->copy()->addHours(24)->isPast()
         ) {
-            $user->pending_email = null;
-            $user->pending_email_token = null;
-            $user->pending_email_requested_at = null;
-            $user->save();
+            $user->forceFill([
+                'pending_email' => null,
+                'pending_email_token' => null,
+                'pending_email_requested_at' => null,
+            ])->save();
 
-            abort(403, 'Email change token expired. Please request a new confirmation email.');
+            return redirect()->route('login');
         }
 
-        if (User::query()->where('email', $user->pending_email)->whereKeyNot($user->id)->exists()) {
-            return redirect()->route('login')->withErrors([
-                'email' => 'That email address is already in use. Please request the change again with a different address.',
-            ]);
+        $newEmail = $user->pending_email;
+
+        if (User::query()->where('email', $newEmail)->whereKeyNot($user->id)->exists()) {
+            return redirect()->route('login');
         }
 
         $old = $user->email;
-        $user->email = $user->pending_email;
-        $user->pending_email = null;
-        $user->pending_email_token = null;
-        $user->pending_email_requested_at = null;
-        $user->email_verified_at = now();
-        $user->name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $user->email;
-        $user->save();
+        $newName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $newEmail;
+
+        $user->forceFill([
+            'email' => $newEmail,
+            'pending_email' => null,
+            'pending_email_token' => null,
+            'pending_email_requested_at' => null,
+            'email_verified_at' => now(),
+            'name' => $newName,
+        ])->save();
+
+        $user->refresh();
 
         Audit::log('profile', 'email.change.confirm', 'user', $user->id, ['from' => $old, 'to' => $user->email]);
 

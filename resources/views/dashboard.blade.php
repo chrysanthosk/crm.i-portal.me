@@ -151,7 +151,7 @@
                 <a href="{{ route('calendar_view.index') }}" class="btn btn-outline-info d-block"><i class="fas fa-expand-arrows-alt mr-1"></i> Full Calendar</a>
             </div>
         </div>
-        
+
         <div class="card card-info card-outline">
             <div class="card-header"><strong>Date & Context</strong></div>
             <div class="card-body">

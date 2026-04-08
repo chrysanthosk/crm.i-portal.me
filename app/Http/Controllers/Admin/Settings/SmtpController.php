@@ -61,7 +61,7 @@ class SmtpController extends Controller
             'username' => $smtp->username ? '***' : null,
         ]);
 
-        return redirect()->route('admin.settings.smtp.edit')->with('status', 'SMTP settings saved.');
+        return redirect()->route('settings.smtp.edit')->with('status', 'SMTP settings saved.');
     }
 
     public function test(Request $request)
@@ -82,7 +82,7 @@ class SmtpController extends Controller
 
             Audit::log('settings', 'smtp.test.success', 'smtp_settings', (string)$smtp->id, ['to' => $data['test_email']]);
 
-            return redirect()->route('admin.settings.smtp.edit')->with('status', 'Test email sent successfully.');
+            return redirect()->route('settings.smtp.edit')->with('status', 'Test email sent successfully.');
         } catch (\Throwable $e) {
             Audit::log('settings', 'smtp.test.failure', 'smtp_settings', (string)($smtp->id ?? 0), [
                 'to' => $data['test_email'],
