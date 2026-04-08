@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ClientRequest;
 use App\Models\Client;
 use App\Support\Audit;
 use Illuminate\Http\Request;
@@ -22,9 +23,9 @@ class ClientController extends Controller
         return view('clients.create');
     }
 
-    public function store(Request $request)
+    public function store(ClientRequest $request)
     {
-        $data = $this->validateClient($request);
+        $data = $request->validated();
 
         if (empty($data['registration_date'])) {
             $data['registration_date'] = now();
@@ -46,9 +47,9 @@ class ClientController extends Controller
         return view('clients.edit', compact('client'));
     }
 
-    public function update(Request $request, Client $client)
+    public function update(ClientRequest $request, Client $client)
     {
-        $data = $this->validateClient($request);
+        $data = $request->validated();
 
         if (empty($data['registration_date'])) {
             $data['registration_date'] = $client->registration_date ?? now();
@@ -286,8 +287,8 @@ class ClientController extends Controller
                 'address'           => ['nullable', 'string', 'max:255'],
                 'city'              => ['nullable', 'string', 'max:100'],
                 'gender'            => ['required', Rule::in(['Male','Female','Other'])],
-                'notes'             => ['nullable', 'string', 'max:2000'],
-                'comments'          => ['nullable', 'string', 'max:2000'],
+                'notes'             => ['nullable', 'string', 'max:5000'],
+                'comments'          => ['nullable', 'string', 'max:5000'],
             ]);
 
             if ($validator->fails()) {
@@ -330,20 +331,4 @@ class ClientController extends Controller
         return redirect()->route('clients.index')->with('status', $msg);
     }
 
-    private function validateClient(Request $request): array
-    {
-        return $request->validate([
-            'registration_date' => ['nullable', 'date'],
-            'first_name'        => ['required', 'string', 'max:100'],
-            'last_name'         => ['required', 'string', 'max:100'],
-            'dob'               => ['required', 'date'],
-            'mobile'            => ['required', 'string', 'max:20'],
-            'email'             => ['required', 'email', 'max:150'],
-            'address'           => ['nullable', 'string', 'max:255'],
-            'city'              => ['nullable', 'string', 'max:100'],
-            'gender'            => ['required', Rule::in(['Male','Female','Other'])],
-            'notes'             => ['nullable', 'string', 'max:2000'],
-            'comments'          => ['nullable', 'string', 'max:2000'],
-        ]);
-    }
 }

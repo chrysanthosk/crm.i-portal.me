@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AppointmentRequest;
 use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\Service;
@@ -9,7 +10,6 @@ use App\Models\Staff;
 use App\Models\ServiceCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AppointmentController extends Controller
@@ -167,9 +167,9 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(AppointmentRequest $request)
     {
-        $data = $this->validateAppointment($request);
+        $data = $request->validated();
 
         if (empty($data['client_id'])) {
             $data['client_id'] = $this->createClientFromAppointment($data);
@@ -196,9 +196,9 @@ class AppointmentController extends Controller
             ->with('success', 'Appointment created successfully.');
     }
 
-    public function update(Request $request, Appointment $appointment)
+    public function update(AppointmentRequest $request, Appointment $appointment)
     {
-        $data = $this->validateAppointment($request, $appointment->id);
+        $data = $request->validated();
 
         if (empty($data['client_id'])) {
             $data['client_id'] = $this->createClientFromAppointment($data);
@@ -364,60 +364,6 @@ class AppointmentController extends Controller
 
             fclose($out);
         }, $filename, $headers);
-    }
-
-    /**
-     * FIXED: no ->tap() on array.
-     * Laravel $request->validate() returns an array; to add after-hook validation
-     * we must use Validator::make().
-     */
-    private function validateAppointment(Request $request, ?int $ignoreId = null): array
-    {
-        $rules = [
-            'staff_id' => ['required', 'integer', 'exists:staff,id'],
-            'start_at' => ['required', 'string'],
-            'end_at'   => ['required', 'string'],
-
-            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
-
-            'client_first_name' => ['nullable', 'string', 'max:100', 'required_without:client_id'],
-            'client_last_name'  => ['nullable', 'string', 'max:100', 'required_without:client_id'],
-            'client_phone'      => ['nullable', 'string', 'max:20'],
-
-            'service_category_id' => ['required', 'integer', 'exists:service_categories,id'],
-            'service_id' => ['required', 'integer', 'exists:services,id'],
-
-            'status' => ['required', 'string'],
-            'send_sms' => ['nullable', 'boolean'],
-            'notes' => ['nullable', 'string'],
-            'internal_notes' => ['nullable', 'string'],
-        ];
-
-        $messages = [
-            'client_first_name.required_without' => 'First name is required when no existing client is selected.',
-            'client_last_name.required_without'  => 'Last name is required when no existing client is selected.',
-        ];
-
-        $validator = Validator::make($request->all(), $rules, $messages);
-
-        // Ensure selected service belongs to selected category
-        $validator->after(function ($v) use ($request) {
-            $catId = (int) $request->input('service_category_id');
-            $svcId = (int) $request->input('service_id');
-
-            if ($catId && $svcId) {
-                $ok = Service::query()
-                    ->where('id', $svcId)
-                    ->where('category_id', $catId)
-                    ->exists();
-
-                if (!$ok) {
-                    $v->errors()->add('service_id', 'Selected service does not belong to the chosen category.');
-                }
-            }
-        });
-
-        return $validator->validate();
     }
 
     private function createClientFromAppointment(array $data): int

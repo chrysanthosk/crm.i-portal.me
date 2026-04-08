@@ -17,7 +17,10 @@ class ReportsController extends Controller
      */
     public function analytics(Request $request)
     {
-        [$startDt, $endDt, $start, $end] = $this->parseDateRange($request);
+        $end   = $request->query('to', Carbon::now()->toDateString());
+        $start = $request->query('from', Carbon::now()->subDays(29)->toDateString());
+
+        [$startDt, $endDt] = $this->clampRange((string)$start, (string)$end);
 
         $salesBase = DB::table('sales')
             ->whereNull('voided_at')
@@ -318,6 +321,11 @@ class ReportsController extends Controller
             return response()->json(['success' => false, 'error' => 'Invalid date range'], 422);
         }
 
+        // Z-reports cover at most a shift/day — cap at 31 days
+        [$clampedFrom, $clampedTo] = $this->clampRange($from, $to, 31);
+        $from = $clampedFrom->toDateString();
+        $to   = $clampedTo->toDateString();
+
         // If already exists, return it
         $existing = DB::table('z_reports')
             ->where('date_from', $from)
@@ -384,15 +392,13 @@ class ReportsController extends Controller
         $from = $request->query('from_date', Carbon::now()->toDateString());
         $to   = $request->query('to_date', Carbon::now()->toDateString());
 
-        $fromDt = Carbon::parse($from)->startOfDay();
-        $toDt   = Carbon::parse($to)->endOfDay();
+        [$fromDt, $toDt] = $this->clampRange((string)$from, (string)$to);
 
         if ($report === 'analytics') {
             $toA   = $request->query('to', Carbon::now()->toDateString());
             $fromA = $request->query('from', Carbon::now()->subDays(29)->toDateString());
 
-            $startDt = Carbon::parse($fromA)->startOfDay();
-            $endDt   = Carbon::parse($toA)->endOfDay();
+            [$startDt, $endDt] = $this->clampRange((string)$fromA, (string)$toA);
 
             $salesBase = DB::table('sales')
                 ->whereNull('voided_at')
@@ -1356,40 +1362,20 @@ class ReportsController extends Controller
      |--------------------------------------------------------------------------
      */
 
-    /**
-     * Parse and validate from/to date query params.
-     * Clamps range to a maximum of 366 days to prevent expensive unbounded queries.
-     * Returns [Carbon $startDt, Carbon $endDt, string $start, string $end].
-     */
-    private function parseDateRange(Request $request, int $defaultDays = 29, int $maxDays = 366): array
+    private function clampRange(string $from, string $to, int $maxDays = 366): array
     {
-        $end   = $request->query('to',   Carbon::now()->toDateString());
-        $start = $request->query('from', Carbon::now()->subDays($defaultDays)->toDateString());
+        $fromDt = Carbon::parse($from)->startOfDay();
+        $toDt   = Carbon::parse($to)->endOfDay();
 
-        // Ensure both are valid dates; fall back to safe defaults if not
-        try {
-            $startDt = Carbon::parse($start)->startOfDay();
-        } catch (\Throwable) {
-            $startDt = Carbon::now()->subDays($defaultDays)->startOfDay();
+        if ($fromDt->greaterThan($toDt)) {
+            $toDt = $fromDt->copy()->endOfDay();
         }
 
-        try {
-            $endDt = Carbon::parse($end)->endOfDay();
-        } catch (\Throwable) {
-            $endDt = Carbon::now()->endOfDay();
+        if ($fromDt->diffInDays($toDt) > $maxDays) {
+            $fromDt = $toDt->copy()->subDays($maxDays)->startOfDay();
         }
 
-        // start must not be after end
-        if ($startDt->gt($endDt)) {
-            $startDt = (clone $endDt)->subDays($defaultDays)->startOfDay();
-        }
-
-        // Cap range to prevent extremely expensive queries
-        if ($startDt->diffInDays($endDt) > $maxDays) {
-            $startDt = (clone $endDt)->subDays($maxDays)->startOfDay();
-        }
-
-        return [$startDt, $endDt, $startDt->toDateString(), $endDt->toDateString()];
+        return [$fromDt, $toDt];
     }
 
     private function driver(): string
