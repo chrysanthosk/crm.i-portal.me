@@ -90,8 +90,12 @@ class ReportsController extends Controller
      */
     public function staffPerformance(Request $request)
     {
-        $to   = (string)$request->query('to_date', Carbon::now()->toDateString());
-        $from = (string)$request->query('from_date', Carbon::now()->subDays(29)->toDateString());
+        // staffPerformance uses from_date/to_date param names — remap for parseDateRange
+        $request->merge([
+            'from' => $request->query('from_date', Carbon::now()->subDays(29)->toDateString()),
+            'to'   => $request->query('to_date', Carbon::now()->toDateString()),
+        ]);
+        [, , $from, $to] = $this->parseDateRange($request);
         $dateBasis = (string)$request->query('date_basis', 'sale');
 
         $data = $this->loadReportData('staff_performance', $request);

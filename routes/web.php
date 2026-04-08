@@ -108,7 +108,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // ✅ Clients + Import + Export
     Route::middleware('permission:client.manage')->group(function () {
-        Route::get('/clients/export', [ClientController::class, 'export'])->name('clients.export');
+        Route::get('/clients/export', [ClientController::class, 'export'])->middleware('throttle:10,1')->name('clients.export');
         Route::get('/clients/import/template', [ClientController::class, 'downloadTemplate'])->name('clients.import.template');
         Route::post('/clients/import', [ClientController::class, 'import'])->name('clients.import')->middleware('throttle:20,1');
         Route::resource('clients', ClientController::class)->except(['show']);
@@ -127,7 +127,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // ✅ Suppliers (Manage + Import + Export + Template)
     Route::middleware('permission:suppliers.manage')->group(function () {
-        Route::get('/suppliers/export', [SupplierController::class, 'export'])->name('suppliers.export');
+        Route::get('/suppliers/export', [SupplierController::class, 'export'])->middleware('throttle:10,1')->name('suppliers.export');
         Route::get('/suppliers/template', [SupplierController::class, 'template'])->name('suppliers.template');
         Route::post('/suppliers/import', [SupplierController::class, 'import'])->name('suppliers.import')->middleware('throttle:20,1');
         Route::resource('suppliers', SupplierController::class)->except(['show', 'create', 'edit']);
@@ -182,7 +182,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * PRODUCTS (module page outside settings)
      */
     Route::middleware('permission:products.manage')->group(function () {
-        Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
+        Route::get('/products/export', [ProductController::class, 'export'])->middleware('throttle:10,1')->name('products.export');
         Route::get('/products/template', [ProductController::class, 'template'])->name('products.template');
         Route::post('/products/import', [ProductController::class, 'import'])->name('products.import')->middleware('throttle:20,1');
         Route::resource('products', ProductController::class)->except(['show']);
