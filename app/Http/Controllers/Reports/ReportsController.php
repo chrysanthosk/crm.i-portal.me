@@ -20,8 +20,7 @@ class ReportsController extends Controller
         $end   = $request->query('to', Carbon::now()->toDateString());
         $start = $request->query('from', Carbon::now()->subDays(29)->toDateString());
 
-        $startDt = Carbon::parse($start)->startOfDay();
-        $endDt   = Carbon::parse($end)->endOfDay();
+        [$startDt, $endDt] = $this->clampRange((string)$start, (string)$end);
 
         $salesBase = DB::table('sales')
             ->whereNull('voided_at')
@@ -318,6 +317,11 @@ class ReportsController extends Controller
             return response()->json(['success' => false, 'error' => 'Invalid date range'], 422);
         }
 
+        // Z-reports cover at most a shift/day — cap at 31 days
+        [$clampedFrom, $clampedTo] = $this->clampRange($from, $to, 31);
+        $from = $clampedFrom->toDateString();
+        $to   = $clampedTo->toDateString();
+
         // If already exists, return it
         $existing = DB::table('z_reports')
             ->where('date_from', $from)
@@ -384,15 +388,13 @@ class ReportsController extends Controller
         $from = $request->query('from_date', Carbon::now()->toDateString());
         $to   = $request->query('to_date', Carbon::now()->toDateString());
 
-        $fromDt = Carbon::parse($from)->startOfDay();
-        $toDt   = Carbon::parse($to)->endOfDay();
+        [$fromDt, $toDt] = $this->clampRange((string)$from, (string)$to);
 
         if ($report === 'analytics') {
             $toA   = $request->query('to', Carbon::now()->toDateString());
             $fromA = $request->query('from', Carbon::now()->subDays(29)->toDateString());
 
-            $startDt = Carbon::parse($fromA)->startOfDay();
-            $endDt   = Carbon::parse($toA)->endOfDay();
+            [$startDt, $endDt] = $this->clampRange((string)$fromA, (string)$toA);
 
             $salesBase = DB::table('sales')
                 ->whereNull('voided_at')
@@ -1355,6 +1357,22 @@ class ReportsController extends Controller
      | SQL Helpers
      |--------------------------------------------------------------------------
      */
+
+    private function clampRange(string $from, string $to, int $maxDays = 366): array
+    {
+        $fromDt = Carbon::parse($from)->startOfDay();
+        $toDt   = Carbon::parse($to)->endOfDay();
+
+        if ($fromDt->greaterThan($toDt)) {
+            $toDt = $fromDt->copy()->endOfDay();
+        }
+
+        if ($fromDt->diffInDays($toDt) > $maxDays) {
+            $fromDt = $toDt->copy()->subDays($maxDays)->startOfDay();
+        }
+
+        return [$fromDt, $toDt];
+    }
 
     private function driver(): string
     {

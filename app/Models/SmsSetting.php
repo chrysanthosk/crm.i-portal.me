@@ -20,6 +20,8 @@ class SmsSetting extends Model
 
     protected $casts = [
         'is_enabled' => 'boolean',
+        'api_key'    => 'encrypted',
+        'api_secret' => 'encrypted',
     ];
 
     public function provider()

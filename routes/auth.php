@@ -160,7 +160,7 @@ Route::middleware('guest')->group(function () {
         Audit::log('auth', 'login', 'user', $user?->id);
 
         return redirect()->intended('/dashboard');
-    })->name('login.store');
+    })->name('login.store')->middleware('throttle:5,1');
 
     // 2FA Challenge page
     Route::get('/two-factor-challenge', function (Request $request) {
@@ -291,7 +291,7 @@ Route::middleware('guest')->group(function () {
         }
 
         return $response;
-    })->name('2fa.verify');
+    })->name('2fa.verify')->middleware('throttle:5,1');
 
     // Cancel 2FA
     Route::post('/two-factor-challenge/cancel', function (Request $request) {
@@ -314,7 +314,7 @@ Route::middleware('guest')->group(function () {
         return $status === Password::RESET_LINK_SENT
             ? back()->with('status', __($status))
             : back()->withErrors(['email' => __($status)]);
-    })->name('password.email');
+    })->name('password.email')->middleware('throttle:5,1');
 
     Route::get('/reset-password/{token}', function (string $token) {
         return view('auth.reset-password', ['token' => $token]);
@@ -342,7 +342,7 @@ Route::middleware('guest')->group(function () {
         return $status === Password::PASSWORD_RESET
             ? redirect('/login')->with('status', __($status))
             : back()->withErrors(['email' => __($status)]);
-    })->name('password.store');
+    })->name('password.store')->middleware('throttle:5,1');
 });
 
 Route::middleware('auth')->group(function () {

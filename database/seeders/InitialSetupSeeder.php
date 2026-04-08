@@ -66,14 +66,23 @@ class InitialSetupSeeder extends Seeder
             ])->pluck('id')->all()
         );
 
+        $adminEmail    = env('ADMIN_EMAIL', 'admin@example.com');
+        $adminPassword = env('ADMIN_PASSWORD');
+
+        if (empty($adminPassword)) {
+            throw new \RuntimeException(
+                'ADMIN_PASSWORD env variable is required to seed the initial admin user.'
+            );
+        }
+
         User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => $adminEmail],
             [
                 'first_name' => 'Admin',
                 'last_name' => 'User',
                 'name' => 'Admin User',
                 'role' => 'owner',
-                'password' => Hash::make('ChangeMe123!!'),
+                'password' => Hash::make($adminPassword),
                 'email_verified_at' => now(),
                 'theme' => 'light',
             ]

@@ -110,7 +110,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('permission:client.manage')->group(function () {
         Route::get('/clients/export', [ClientController::class, 'export'])->name('clients.export');
         Route::get('/clients/import/template', [ClientController::class, 'downloadTemplate'])->name('clients.import.template');
-        Route::post('/clients/import', [ClientController::class, 'import'])->name('clients.import');
+        Route::post('/clients/import', [ClientController::class, 'import'])->name('clients.import')->middleware('throttle:20,1');
         Route::resource('clients', ClientController::class)->except(['show']);
     });
 
@@ -129,7 +129,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('permission:suppliers.manage')->group(function () {
         Route::get('/suppliers/export', [SupplierController::class, 'export'])->name('suppliers.export');
         Route::get('/suppliers/template', [SupplierController::class, 'template'])->name('suppliers.template');
-        Route::post('/suppliers/import', [SupplierController::class, 'import'])->name('suppliers.import');
+        Route::post('/suppliers/import', [SupplierController::class, 'import'])->name('suppliers.import')->middleware('throttle:20,1');
         Route::resource('suppliers', SupplierController::class)->except(['show', 'create', 'edit']);
     });
 
@@ -139,7 +139,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
      */
     Route::middleware('permission:bulk_sms.send')->group(function () {
         Route::get('/bulk-sms', [BulkSmsController::class, 'index'])->name('bulk_sms.index');
-        Route::post('/bulk-sms/send', [BulkSmsController::class, 'send'])->name('bulk_sms.send');
+        Route::post('/bulk-sms/send', [BulkSmsController::class, 'send'])->name('bulk_sms.send')->middleware('throttle:10,1');
     });
 
     // Appointments
@@ -173,7 +173,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/{service}', [ServiceController::class, 'update'])->name('update');
         Route::delete('/{service}', [ServiceController::class, 'destroy'])->name('destroy');
 
-        Route::post('/import', [ServiceController::class, 'import'])->name('import');
+        Route::post('/import', [ServiceController::class, 'import'])->name('import')->middleware('throttle:20,1');
         Route::get('/import/template', [ServiceController::class, 'downloadTemplate'])->name('import.template');
         Route::get('/template', [ServiceController::class, 'downloadTemplate'])->name('template');
     });
@@ -184,7 +184,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('permission:products.manage')->group(function () {
         Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
         Route::get('/products/template', [ProductController::class, 'template'])->name('products.template');
-        Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
+        Route::post('/products/import', [ProductController::class, 'import'])->name('products.import')->middleware('throttle:20,1');
         Route::resource('products', ProductController::class)->except(['show']);
     });
 
@@ -254,11 +254,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('financial')->name('financial.')->middleware('permission:reporting.view')->group(function () {
             Route::get('/income', [FinanceController::class, 'income'])->name('income');
             Route::post('/income/save', [FinanceController::class, 'incomeSave'])->name('income.save');
-            Route::post('/income/import', [FinanceController::class, 'incomeImport'])->name('income.import');
+            Route::post('/income/import', [FinanceController::class, 'incomeImport'])->name('income.import')->middleware('throttle:20,1');
 
             Route::get('/expenses', [FinanceController::class, 'expenses'])->name('expenses');
             Route::post('/expenses/save', [FinanceController::class, 'expensesSave'])->name('expenses.save');
-            Route::post('/expenses/import', [FinanceController::class, 'expensesImport'])->name('expenses.import');
+            Route::post('/expenses/import', [FinanceController::class, 'expensesImport'])->name('expenses.import')->middleware('throttle:20,1');
         });
     });
 
@@ -296,7 +296,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('permission:products.manage')->group(function () {
             Route::get('/product-categories/export', [SettingsProductCategoryController::class, 'export'])->name('product-categories.export');
             Route::get('/product-categories/template', [SettingsProductCategoryController::class, 'template'])->name('product-categories.template');
-            Route::post('/product-categories/import', [SettingsProductCategoryController::class, 'import'])->name('product-categories.import');
+            Route::post('/product-categories/import', [SettingsProductCategoryController::class, 'import'])->name('product-categories.import')->middleware('throttle:20,1');
             Route::resource('product-categories', SettingsProductCategoryController::class)->except(['show']);
         });
 
