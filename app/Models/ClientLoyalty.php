@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClientLoyalty extends Model
 {
-    // client_id is the primary key (not auto-increment)
+    protected $table      = 'client_loyalty';
     protected $primaryKey = 'client_id';
     public $incrementing  = false;
 
