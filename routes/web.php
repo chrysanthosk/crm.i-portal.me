@@ -111,6 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/clients/export', [ClientController::class, 'export'])->middleware('throttle:10,1')->name('clients.export');
         Route::get('/clients/import/template', [ClientController::class, 'downloadTemplate'])->name('clients.import.template');
         Route::post('/clients/import', [ClientController::class, 'import'])->name('clients.import')->middleware('throttle:20,1');
+        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::resource('clients', ClientController::class)->except(['show']);
     });
 
