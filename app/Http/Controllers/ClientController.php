@@ -20,6 +20,42 @@ class ClientController extends Controller
         return view('clients.index', compact('clients'));
     }
 
+    public function show(Client $client)
+    {
+        $client->load([
+            'appointments.service',
+            'appointments.staff.user',
+            'appointments.sale',
+            'sales' => fn($q) => $q->orderByDesc('created_at'),
+            'sales.saleServices.service',
+            'sales.saleProducts.product',
+            'sales.salePayments.paymentMethod',
+            'loyalty',
+            'loyaltyTransactions' => fn($q) => $q->limit(10),
+        ]);
+
+        $totalSpent      = $client->sales->where('voided_at', null)->sum('grand_total');
+        $totalVisits     = $client->appointments->whereIn('status', ['completed', 'confirmed'])->count();
+        $lastVisit       = $client->appointments->whereIn('status', ['completed'])->first()?->start_at;
+        $loyaltyPoints   = $client->loyalty?->points_balance ?? 0;
+        $currentTier     = $client->loyalty?->currentTier();
+        $nextTier        = $client->loyalty?->nextTier();
+        $pointsToNext    = $client->loyalty?->pointsToNextTier();
+        $allTiers        = LoyaltyTier::query()->orderBy('points_min')->get();
+
+        return view('clients.show', compact(
+            'client',
+            'totalSpent',
+            'totalVisits',
+            'lastVisit',
+            'loyaltyPoints',
+            'currentTier',
+            'nextTier',
+            'pointsToNext',
+            'allTiers',
+        ));
+    }
+
     public function create()
     {
         return view('clients.create');

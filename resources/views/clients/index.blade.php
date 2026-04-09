@@ -70,6 +70,10 @@
                         <td><span class="badge bg-secondary">{{ $c->gender }}</span></td>
                         <td>{{ optional($c->registration_date)->format('Y-m-d H:i') }}</td>
                         <td class="text-end">
+                            <a href="{{ route('clients.show', $c) }}" class="btn btn-sm btn-outline-info" title="View Profile">
+                                <i class="fas fa-user"></i>
+                            </a>
+
                             @if(Auth::user() && (Auth::user()->role === 'admin' || Auth::user()->hasPermission('appointment.manage')))
                                 <a href="{{ route('appointments.create') }}?client_id={{ $c->id }}" class="btn btn-sm btn-outline-success" title="Add Appointment">
                                     <i class="fas fa-calendar-plus"></i>
