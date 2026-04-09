@@ -63,6 +63,11 @@ class Appointment extends Model
         return $this->belongsTo(Service::class);
     }
 
+    public function sale()
+    {
+        return $this->hasOne(Sale::class);
+    }
+
     public function getClientDisplayNameAttribute(): string
     {
         // Prefer linked client if available

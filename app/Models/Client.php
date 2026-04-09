@@ -27,4 +27,9 @@ class Client extends Model
         'registration_date' => 'datetime',
         'dob' => 'date',
     ];
+
+    public function sales()
+    {
+        return $this->hasMany(Sale::class);
+    }
 }

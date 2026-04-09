@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\Product;
+use App\Models\Sale;
 use App\Models\Service;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -44,9 +44,7 @@ class DashboardController extends Controller
             ->whereBetween('start_at', [$start, $end])
             ->count();
 
-        $todaySales = (float) DB::table('sales')
-            ->whereBetween(\Illuminate\Support\Facades\Schema::hasColumn('sales', 'sale_date') ? 'sale_date' : 'created_at', [$start, $end])
-            ->sum('grand_total');
+        $todaySales = (float) Sale::notVoided()->forDate($today)->sum('grand_total');
 
         $stats = [
             'todayAppointments' => $todayAppointmentsCount,

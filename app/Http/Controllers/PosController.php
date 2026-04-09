@@ -3,10 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\DashboardSetting;
+use App\Models\PaymentMethod;
+use App\Models\Sale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class PosController extends Controller
@@ -25,6 +26,7 @@ class PosController extends Controller
             ->orderBy('s.name')
             ->get();
 
+        // Today's appointments that have not yet been checked out
         $appointments = DB::table('appointments as a')
             ->join('services as sv', 'a.service_id', '=', 'sv.id')
             ->join('vat_types as vt', 'sv.vat_type_id', '=', 'vt.id')
@@ -47,7 +49,7 @@ class PosController extends Controller
             ->map(function ($row) {
                 $start = $row->start_at ? Carbon::parse($row->start_at) : null;
                 $row->appointment_date = $start ? $start->format('Y-m-d') : '';
-                $row->start_time = $start ? $start->format('H:i') : '';
+                $row->start_time       = $start ? $start->format('H:i') : '';
                 return $row;
             })
             ->values();
@@ -64,10 +66,7 @@ class PosController extends Controller
             ->orderBy('st.id')
             ->get();
 
-        $payments = DB::table('payment_methods')
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
+        $payments = PaymentMethod::orderBy('name')->get(['id', 'name']);
 
         return view('pos.index', [
             'products'     => $products,
@@ -102,17 +101,17 @@ class PosController extends Controller
         try {
             return DB::transaction(function () use ($items, $staffId, $methodId, $paid, $clientId) {
                 $normalizedItems = [];
-                $appointmentId = null;
+                $appointmentId   = null;
 
+                // ---- Validate & normalise cart items ----
                 foreach ($items as $idx => $it) {
-                    $type = (string)($it['type'] ?? '');
-                    $qty  = max(1, (int)($it['qty'] ?? 1));
+                    $type = (string) ($it['type'] ?? '');
+                    $qty  = max(1, (int) ($it['qty'] ?? 1));
 
                     if ($type === 'service') {
-                        $serviceId = (int)($it['id'] ?? 0);
                         $service = DB::table('services as s')
                             ->join('vat_types as vt', 's.vat_type_id', '=', 'vt.id')
-                            ->where('s.id', $serviceId)
+                            ->where('s.id', (int) ($it['id'] ?? 0))
                             ->select('s.id', DB::raw('s.price as sell_price'), 'vt.vat_percent')
                             ->first();
 
@@ -121,18 +120,18 @@ class PosController extends Controller
                         }
 
                         $normalizedItems[] = [
-                            'type' => 'service',
-                            'service_id' => $serviceId,
-                            'quantity' => $qty,
-                            'unit_price' => (float)$service->sell_price,
-                            'vat_percent' => (float)$service->vat_percent,
+                            'type'        => 'service',
+                            'service_id'  => (int) $service->id,
+                            'quantity'    => $qty,
+                            'unit_price'  => (float) $service->sell_price,
+                            'vat_percent' => (float) $service->vat_percent,
                         ];
                         continue;
                     }
 
                     if ($type === 'appointment') {
-                        $apptId = (int)($it['appt_id'] ?? 0);
-                        $appt = DB::table('appointments as a')
+                        $apptId = (int) ($it['appt_id'] ?? 0);
+                        $appt   = DB::table('appointments as a')
                             ->join('services as s', 'a.service_id', '=', 's.id')
                             ->join('vat_types as vt', 's.vat_type_id', '=', 'vt.id')
                             ->leftJoin('sales as sale', 'sale.appointment_id', '=', 'a.id')
@@ -151,19 +150,19 @@ class PosController extends Controller
                         }
 
                         $normalizedItems[] = [
-                            'type' => 'appointment',
+                            'type'           => 'appointment',
                             'appointment_id' => $apptId,
-                            'service_id' => (int)$appt->service_id,
-                            'quantity' => 1,
-                            'unit_price' => (float)$appt->sell_price,
-                            'vat_percent' => (float)$appt->vat_percent,
+                            'service_id'     => (int) $appt->service_id,
+                            'quantity'       => 1,
+                            'unit_price'     => (float) $appt->sell_price,
+                            'vat_percent'    => (float) $appt->vat_percent,
                         ];
                         continue;
                     }
 
                     if ($type === 'product') {
-                        $productId = (int)($it['id'] ?? 0);
-                        $product = DB::table('products as p')
+                        $productId = (int) ($it['id'] ?? 0);
+                        $product   = DB::table('products as p')
                             ->join('vat_types as vt', 'p.sell_vat_type_id', '=', 'vt.id')
                             ->where('p.id', $productId)
                             ->select('p.id', 'p.sell_price', 'p.quantity_stock', 'vt.vat_percent')
@@ -174,16 +173,16 @@ class PosController extends Controller
                             return response()->json(['error' => "Product item #{$idx} is invalid."], 422);
                         }
 
-                        if (isset($product->quantity_stock) && (float)$product->quantity_stock < $qty) {
+                        if (isset($product->quantity_stock) && (float) $product->quantity_stock < $qty) {
                             return response()->json(['error' => "Product #{$productId} does not have enough stock."], 422);
                         }
 
                         $normalizedItems[] = [
-                            'type' => 'product',
-                            'product_id' => $productId,
-                            'quantity' => $qty,
-                            'unit_price' => (float)$product->sell_price,
-                            'vat_percent' => (float)$product->vat_percent,
+                            'type'        => 'product',
+                            'product_id'  => $productId,
+                            'quantity'    => $qty,
+                            'unit_price'  => (float) $product->sell_price,
+                            'vat_percent' => (float) $product->vat_percent,
                         ];
                         continue;
                     }
@@ -195,14 +194,16 @@ class PosController extends Controller
                     return response()->json(['error' => 'Cart is empty.'], 422);
                 }
 
-                $servicesSub = 0.0; $productsSub = 0.0;
-                $servicesVat = 0.0; $productsVat = 0.0;
+                // ---- Calculate totals ----
+                $servicesSub = 0.0;
+                $productsSub = 0.0;
+                $servicesVat = 0.0;
+                $productsVat = 0.0;
 
                 foreach ($normalizedItems as $item) {
-                    $unitInc = (float)$item['unit_price'];
-                    $vatPct  = ((float)$item['vat_percent']) / 100.0;
-                    $qty     = (int)$item['quantity'];
-
+                    $unitInc    = (float) $item['unit_price'];
+                    $vatPct     = (float) $item['vat_percent'] / 100.0;
+                    $qty        = (int) $item['quantity'];
                     $netPerUnit = $unitInc / (1.0 + $vatPct);
                     $taxPerUnit = $unitInc - $netPerUnit;
 
@@ -222,7 +223,8 @@ class PosController extends Controller
                     return response()->json(['error' => 'Amount paid is less than grand total.'], 422);
                 }
 
-                $saleRow = [
+                // ---- Persist sale header ----
+                $sale = Sale::create([
                     'appointment_id'    => $appointmentId,
                     'client_id'         => $clientId,
                     'services_subtotal' => round($servicesSub, 2),
@@ -231,134 +233,53 @@ class PosController extends Controller
                     'products_vat'      => round($productsVat, 2),
                     'total_vat'         => round($totalVat, 2),
                     'grand_total'       => $grand,
-                ];
+                ]);
 
-                if (Schema::hasColumn('sales', 'sale_date')) {
-                    $saleRow['sale_date'] = now();
-                }
-                if (Schema::hasColumn('sales', 'created_at')) $saleRow['created_at'] = now();
-                if (Schema::hasColumn('sales', 'updated_at')) $saleRow['updated_at'] = now();
-
-                $saleId = DB::table('sales')->insertGetId($saleRow);
-
-                $ssHasCreated = Schema::hasColumn('sale_services', 'created_at');
-                $ssHasUpdated = Schema::hasColumn('sale_services', 'updated_at');
-                $spHasCreated = Schema::hasColumn('sale_products', 'created_at');
-                $spHasUpdated = Schema::hasColumn('sale_products', 'updated_at');
-
+                // ---- Persist line items ----
                 foreach ($normalizedItems as $item) {
-                    $qty       = (int)$item['quantity'];
-                    $unitInc   = (float)$item['unit_price'];
+                    $qty       = (int) $item['quantity'];
+                    $unitInc   = (float) $item['unit_price'];
                     $lineTotal = round($unitInc * $qty, 2);
 
-                    if ($item['type'] === 'service') {
-                        $row = [
-                            'sale_id'    => $saleId,
+                    if ($item['type'] === 'service' || $item['type'] === 'appointment') {
+                        $sale->saleServices()->create([
                             'service_id' => $item['service_id'],
                             'staff_id'   => $staffId,
                             'quantity'   => $qty,
                             'unit_price' => $unitInc,
                             'line_total' => $lineTotal,
-                        ];
-                        if ($ssHasCreated) $row['created_at'] = now();
-                        if ($ssHasUpdated) $row['updated_at'] = now();
-                        DB::table('sale_services')->insert($row);
+                        ]);
                         continue;
                     }
 
-                    if ($item['type'] === 'appointment') {
-                        $row = [
-                            'sale_id'    => $saleId,
-                            'service_id' => $item['service_id'],
-                            'staff_id'   => $staffId,
-                            'quantity'   => 1,
-                            'unit_price' => $unitInc,
-                            'line_total' => round($unitInc, 2),
-                        ];
-                        if ($ssHasCreated) $row['created_at'] = now();
-                        if ($ssHasUpdated) $row['updated_at'] = now();
-                        DB::table('sale_services')->insert($row);
-                        continue;
-                    }
-
-                    $row = [
-                        'sale_id'    => $saleId,
+                    // Product line
+                    $sale->saleProducts()->create([
                         'product_id' => $item['product_id'],
                         'staff_id'   => $staffId,
                         'quantity'   => $qty,
                         'unit_price' => $unitInc,
                         'line_total' => $lineTotal,
-                    ];
-                    if ($spHasCreated) $row['created_at'] = now();
-                    if ($spHasUpdated) $row['updated_at'] = now();
-                    DB::table('sale_products')->insert($row);
+                    ]);
 
-                    if (Schema::hasColumn('products', 'quantity_stock')) {
-                        $upd = [
-                            'quantity_stock' => DB::raw('quantity_stock - ' . $qty),
-                        ];
-                        if (Schema::hasColumn('products', 'updated_at')) {
-                            $upd['updated_at'] = now();
-                        }
-                        DB::table('products')->where('id', $item['product_id'])->update($upd);
-                    }
+                    // Decrement stock
+                    DB::table('products')
+                        ->where('id', $item['product_id'])
+                        ->update(['quantity_stock' => DB::raw('quantity_stock - ' . $qty)]);
                 }
 
-                DB::table('sale_payments')->insert([
-                    'sale_id'           => $saleId,
+                // ---- Persist payment ----
+                $sale->salePayments()->create([
                     'payment_method_id' => $methodId,
                     'amount'            => $paid,
-                    'created_at'        => now(),
-                    'updated_at'        => now(),
                 ]);
 
-                if (
-                    Schema::hasTable('loyalty_settings') &&
-                    Schema::hasTable('loyalty_transactions') &&
-                    Schema::hasTable('client_loyalty')
-                ) {
-                    $rate = (int)(DB::table('loyalty_settings')->where('key', 'points_per_euro')->value('value') ?? 0);
-                    $points = ($rate > 0) ? (int) floor($grand * $rate) : 0;
-
-                    $awardClient = null;
-                    if ($appointmentId) {
-                        $awardClient = (int)(DB::table('appointments')->where('id', $appointmentId)->value('client_id') ?? 0);
-                        if ($awardClient <= 0) $awardClient = null;
-                    } elseif ($clientId) {
-                        $awardClient = $clientId;
-                    }
-
-                    if ($awardClient && $points > 0) {
-                        DB::table('loyalty_transactions')->insert([
-                            'client_id'    => $awardClient,
-                            'change'       => $points,
-                            'reason'       => 'purchase',
-                            'reference_id' => $saleId,
-                            'created_at'   => now(),
-                            'updated_at'   => now(),
-                        ]);
-
-                        $existing = DB::table('client_loyalty')->where('client_id', $awardClient)->first();
-                        if ($existing) {
-                            DB::table('client_loyalty')->where('client_id', $awardClient)->update([
-                                'points_balance' => (int)$existing->points_balance + $points,
-                                'updated_at'     => now(),
-                            ]);
-                        } else {
-                            DB::table('client_loyalty')->insert([
-                                'client_id'      => $awardClient,
-                                'points_balance' => $points,
-                                'created_at'     => now(),
-                                'updated_at'     => now(),
-                            ]);
-                        }
-                    }
-                }
+                // ---- Award loyalty points (if tables exist) ----
+                $this->awardLoyaltyPoints($sale, $grand, $appointmentId, $clientId);
 
                 return response()->json([
-                    'sale_id'     => $saleId,
+                    'sale_id'     => $sale->id,
                     'grand_total' => round($grand, 2),
-                    'receipt_url' => route('pos.receipt', ['sale' => $saleId]),
+                    'receipt_url' => route('pos.receipt', ['sale' => $sale->id]),
                 ]);
             });
         } catch (Throwable $e) {
@@ -367,83 +288,24 @@ class PosController extends Controller
         }
     }
 
-    public function receipt($saleId)
+    public function receipt(int $saleId)
     {
-        $saleId = (int) $saleId;
+        $sale = Sale::with([
+            'client',
+            'appointment.client',
+            'appointment.service',
+            'saleServices.service',
+            'saleProducts.product',
+            'salePayments.paymentMethod',
+        ])->findOrFail($saleId);
 
-        $sale = DB::table('sales as s')
-            ->leftJoin('clients as mc', 'mc.id', '=', 's.client_id')
-            ->leftJoin('appointments as a', 'a.id', '=', 's.appointment_id')
-            ->leftJoin('clients as ac', 'ac.id', '=', 'a.client_id')
-            ->leftJoin('services as sv', 'sv.id', '=', 'a.service_id')
-            ->select([
-                's.*',
-                's.client_id as manual_client_id',
-                'mc.first_name as manual_first',
-                'mc.last_name as manual_last',
-                'mc.mobile as manual_mobile',
-                'a.id as appt_id',
-                'a.start_at as appt_start_at',
-                'a.client_name as appt_client_name_fallback',
-                'ac.first_name as appt_first',
-                'ac.last_name as appt_last',
-                'ac.mobile as appt_mobile',
-                'sv.name as appt_service_name',
-            ])
-            ->where('s.id', $saleId)
-            ->first();
+        $saleDate = $sale->created_at ?? now();
 
-        abort_if(!$sale, 404);
-
-        $saleDate = null;
-        if (!empty($sale->sale_date)) $saleDate = Carbon::parse($sale->sale_date);
-        elseif (!empty($sale->created_at)) $saleDate = Carbon::parse($sale->created_at);
-        else $saleDate = now();
-
-        $isAppt = false;
-        if (!empty($sale->manual_client_id)) {
-            $clientName   = trim(($sale->manual_first ?? '') . ' ' . ($sale->manual_last ?? '')) ?: 'Walk-in';
-            $clientMobile = (string)($sale->manual_mobile ?? '');
-            $isAppt = false;
-        } elseif (!empty($sale->appt_id)) {
-            $apptName = trim(($sale->appt_first ?? '') . ' ' . ($sale->appt_last ?? ''));
-            if (!$apptName) $apptName = (string)($sale->appt_client_name_fallback ?? '');
-            $clientName   = $apptName ?: 'Walk-in';
-            $clientMobile = (string)($sale->appt_mobile ?? '');
-            $isAppt = true;
-        } else {
-            $clientName = 'Walk-in';
-            $clientMobile = '';
-            $isAppt = false;
-        }
-
-        $apptTime = null;
-        if ($isAppt && !empty($sale->appt_start_at)) {
-            $apptTime = Carbon::parse($sale->appt_start_at);
-        }
-
-        $serviceLines = DB::table('sale_services as ss')
-            ->join('services as sv', 'sv.id', '=', 'ss.service_id')
-            ->select('sv.name as name', 'ss.quantity', 'ss.unit_price', 'ss.line_total')
-            ->where('ss.sale_id', $saleId)
-            ->orderBy('sv.name')
-            ->get();
-
-        $productLines = DB::table('sale_products as sp')
-            ->join('products as p', 'p.id', '=', 'sp.product_id')
-            ->select('p.name as name', 'sp.quantity', 'sp.unit_price', 'sp.line_total')
-            ->where('sp.sale_id', $saleId)
-            ->orderBy('p.name')
-            ->get();
-
-        $payments = DB::table('sale_payments as sp')
-            ->leftJoin('payment_methods as pm', 'pm.id', '=', 'sp.payment_method_id')
-            ->where('sp.sale_id', $saleId)
-            ->select([
-                'sp.*',
-                DB::raw("COALESCE(pm.name,'') as method_name"),
-            ])
-            ->get();
+        $clientName   = $sale->client_name;
+        $clientMobile = $sale->client_mobile;
+        $isAppt       = (bool) $sale->appointment_id;
+        $apptTime     = $isAppt ? $sale->appointment?->start_at : null;
+        $apptService  = $sale->appointment?->service?->name ?? '';
 
         $ds = DashboardSetting::query()->first();
         $company = [
@@ -453,8 +315,8 @@ class PosController extends Controller
             'company_address'      => $ds->company_address ?? '',
         ];
 
-        $grandTotal = (float)($sale->grand_total ?? 0);
-        $amountPaid = (float)$payments->sum('amount');
+        $grandTotal = (float) $sale->grand_total;
+        $amountPaid = (float) $sale->salePayments->sum('amount');
         $changeDue  = $amountPaid - $grandTotal;
 
         return view('pos.receipt', [
@@ -465,13 +327,69 @@ class PosController extends Controller
             'clientMobile' => $clientMobile,
             'isAppt'       => $isAppt,
             'apptTime'     => $apptTime,
-            'apptService'  => (string)($sale->appt_service_name ?? ''),
-            'serviceLines' => $serviceLines,
-            'productLines' => $productLines,
-            'payments'     => $payments,
+            'apptService'  => $apptService,
+            'serviceLines' => $sale->saleServices,
+            'productLines' => $sale->saleProducts,
+            'payments'     => $sale->salePayments,
             'company'      => $company,
             'amountPaid'   => $amountPaid,
             'changeDue'    => $changeDue,
         ]);
+    }
+
+    // ---------- Private helpers ----------
+
+    private function awardLoyaltyPoints(Sale $sale, float $grand, ?int $appointmentId, ?int $clientId): void
+    {
+        if (
+            !DB::getSchemaBuilder()->hasTable('loyalty_settings') ||
+            !DB::getSchemaBuilder()->hasTable('loyalty_transactions') ||
+            !DB::getSchemaBuilder()->hasTable('client_loyalty')
+        ) {
+            return;
+        }
+
+        $rate   = (int) (DB::table('loyalty_settings')->where('key', 'points_per_euro')->value('value') ?? 0);
+        $points = ($rate > 0) ? (int) floor($grand * $rate) : 0;
+
+        $awardClient = null;
+        if ($appointmentId) {
+            $awardClient = (int) (DB::table('appointments')->where('id', $appointmentId)->value('client_id') ?? 0);
+            if ($awardClient <= 0) {
+                $awardClient = null;
+            }
+        } elseif ($clientId) {
+            $awardClient = $clientId;
+        }
+
+        if (!$awardClient || $points <= 0) {
+            return;
+        }
+
+        DB::table('loyalty_transactions')->insert([
+            'client_id'    => $awardClient,
+            'change'       => $points,
+            'reason'       => 'purchase',
+            'reference_id' => $sale->id,
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
+
+        $existing = DB::table('client_loyalty')->where('client_id', $awardClient)->first();
+        if ($existing) {
+            DB::table('client_loyalty')
+                ->where('client_id', $awardClient)
+                ->update([
+                    'points_balance' => (int) $existing->points_balance + $points,
+                    'updated_at'     => now(),
+                ]);
+        } else {
+            DB::table('client_loyalty')->insert([
+                'client_id'      => $awardClient,
+                'points_balance' => $points,
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+        }
     }
 }
