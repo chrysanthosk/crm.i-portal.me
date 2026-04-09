@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ImportSuppliersJob;
+use App\Models\ImportLog;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -113,7 +115,7 @@ class SupplierController extends Controller
     }
 
     /**
-     * Import CSV (expects header row: name,type,mobile,phone,email,comment)
+     * Import CSV — stores the file and dispatches a background job.
      */
     public function import(Request $request)
     {
@@ -121,79 +123,21 @@ class SupplierController extends Controller
             'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:20480'],
         ]);
 
-        $path = $request->file('csv_file')->getRealPath();
-        $handle = fopen($path, 'r');
+        $file   = $request->file('csv_file');
+        $stored = $file->store('imports/suppliers');
 
-        if (!$handle) {
-            return redirect()->route('suppliers.index')->with('error', 'Could not read the uploaded file.');
-        }
+        $log = ImportLog::create([
+            'type'              => 'suppliers',
+            'status'            => 'pending',
+            'original_filename' => $file->getClientOriginalName(),
+            'stored_path'       => $stored,
+            'user_id'           => $request->user()?->id,
+        ]);
 
-        $header = fgetcsv($handle);
-        if (!$header) {
-            fclose($handle);
-            return redirect()->route('suppliers.index')->with('error', 'CSV file is empty.');
-        }
+        ImportSuppliersJob::dispatch($log->id);
 
-        // Normalize header
-        $header = array_map(fn($h) => strtolower(trim((string)$h)), $header);
-
-        $required = ['name', 'type'];
-        foreach ($required as $col) {
-            if (!in_array($col, $header, true)) {
-                fclose($handle);
-                return redirect()->route('suppliers.index')->with('error', "Missing required column: {$col}");
-            }
-        }
-
-        $colIndex = array_flip($header);
-
-        $created = 0;
-        $skipped = 0;
-        $errors  = 0;
-
-        while (($row = fgetcsv($handle)) !== false) {
-            // Skip completely empty rows
-            if (count(array_filter($row, fn($v) => trim((string)$v) !== '')) === 0) {
-                continue;
-            }
-
-            $name = trim((string)($row[$colIndex['name']] ?? ''));
-            $type = trim((string)($row[$colIndex['type']] ?? ''));
-
-            $mobile  = trim((string)($row[$colIndex['mobile']] ?? ''));
-            $phone   = trim((string)($row[$colIndex['phone']] ?? ''));
-            $email   = trim((string)($row[$colIndex['email']] ?? ''));
-            $comment = trim((string)($row[$colIndex['comment']] ?? ''));
-
-            if ($name === '' || $type === '') {
-                $skipped++;
-                continue;
-            }
-
-            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $errors++;
-                continue;
-            }
-
-            Supplier::create([
-                'name' => $name,
-                'type' => $type,
-                'mobile' => $mobile !== '' ? $mobile : null,
-                'phone' => $phone !== '' ? $phone : null,
-                'email' => $email !== '' ? $email : null,
-                'comment' => $comment !== '' ? $comment : null,
-            ]);
-
-            $created++;
-        }
-
-        fclose($handle);
-
-        $msg = "Import complete. Created: {$created}";
-        if ($skipped) $msg .= ", Skipped: {$skipped}";
-        if ($errors)  $msg .= ", Invalid rows: {$errors}";
-
-        return redirect()->route('suppliers.index')->with('status', $msg);
+        return redirect()->route('suppliers.index')
+            ->with('status', 'Supplier import queued. The file is being processed in the background.');
     }
 
     private function validateSupplier(Request $request): array
