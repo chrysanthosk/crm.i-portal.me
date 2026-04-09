@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ImportProductsJob;
+use App\Models\ImportLog;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\VatType;
@@ -165,7 +167,7 @@ class ProductController extends Controller
     }
 
     /**
-     * POST /products/import
+     * POST /products/import — stores the file and dispatches a background job.
      */
     public function import(Request $request)
     {
@@ -173,98 +175,22 @@ class ProductController extends Controller
             'csv' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
         ]);
 
-        $categoriesByName = ProductCategory::query()
-            ->get()
-            ->keyBy(fn($c) => mb_strtolower(trim((string)$c->name)));
+        $file   = $request->file('csv');
+        $stored = $file->store('imports/products');
 
-        $vatByName = VatType::query()
-            ->get()
-            ->keyBy(fn($v) => mb_strtolower(trim((string)$v->name)));
+        $log = ImportLog::create([
+            'type'              => 'products',
+            'status'            => 'pending',
+            'original_filename' => $file->getClientOriginalName(),
+            'stored_path'       => $stored,
+            'user_id'           => $request->user()?->id,
+        ]);
 
-        $path = $request->file('csv')->getRealPath();
-        $fh = fopen($path, 'r');
-
-        $header = fgetcsv($fh);
-        $header = array_map(fn($h) => strtolower(trim((string)$h)), $header ?: []);
-
-        $idx = fn($key) => array_search($key, $header, true);
-
-        $catIdx  = $idx('category');
-        $nameIdx = $idx('name');
-        $ppIdx   = $idx('purchase_price');
-        $pvIdx   = $idx('purchase_vat');
-        $spIdx   = $idx('sell_price');
-        $svIdx   = $idx('sell_vat');
-        $qsIdx   = $idx('quantity_stock');
-        $qbIdx   = $idx('quantity_in_box');
-        $cmIdx   = $idx('comment');
-
-        if ($catIdx === false || $nameIdx === false || $ppIdx === false || $pvIdx === false || $spIdx === false || $svIdx === false) {
-            fclose($fh);
-            return back()->with('error', 'CSV missing required headers. Please use the template.');
-        }
-
-        $created = 0;
-        $updated = 0;
-        $skipped = 0;
-        $errors  = 0;
-
-        while (($row = fgetcsv($fh)) !== false) {
-            $categoryRaw = trim((string)($row[$catIdx] ?? ''));
-            $name        = trim((string)($row[$nameIdx] ?? ''));
-
-            if ($categoryRaw === '' || $name === '') {
-                $skipped++;
-                continue;
-            }
-
-            $categoryId = $this->categoryToId($categoryRaw, $categoriesByName);
-            if (!$categoryId) { $errors++; continue; }
-
-            $purchaseVatRaw = trim((string)($row[$pvIdx] ?? ''));
-            $sellVatRaw     = trim((string)($row[$svIdx] ?? ''));
-
-            $purchaseVatId = $this->vatToId($purchaseVatRaw, $vatByName);
-            $sellVatId     = $this->vatToId($sellVatRaw, $vatByName);
-
-            if (!$purchaseVatId || !$sellVatId) { $errors++; continue; }
-
-            $data = [
-                'category_id' => $categoryId,
-                'name' => $name,
-                'purchase_price' => (float)($row[$ppIdx] ?? 0),
-                'purchase_vat_type_id' => $purchaseVatId,
-                'sell_price' => (float)($row[$spIdx] ?? 0),
-                'sell_vat_type_id' => $sellVatId,
-                'quantity_stock' => (int)($qsIdx !== false ? ($row[$qsIdx] ?? 0) : 0),
-                'quantity_in_box' => (int)($qbIdx !== false ? ($row[$qbIdx] ?? 1) : 1),
-                'comment' => $cmIdx !== false ? (string)($row[$cmIdx] ?? '') : null,
-            ];
-
-            try {
-                // Upsert by (category_id, name) — matches your unique constraint
-                $existing = Product::query()
-                    ->where('category_id', $categoryId)
-                    ->where('name', $name)
-                    ->first();
-
-                if ($existing) {
-                    $existing->update($data);
-                    $updated++;
-                } else {
-                    Product::create($data);
-                    $created++;
-                }
-            } catch (\Throwable $e) {
-                $errors++;
-            }
-        }
-
-        fclose($fh);
+        ImportProductsJob::dispatch($log->id);
 
         return redirect()
             ->route('products.index')
-            ->with('status', "Import completed. Created: {$created}, Updated: {$updated}, Skipped: {$skipped}, Errors: {$errors}");
+            ->with('status', 'Product import queued. The file is being processed in the background.');
     }
 
     private function validateProduct(Request $request, ?int $ignoreId = null): array
@@ -298,27 +224,4 @@ class ProductController extends Controller
         ]);
     }
 
-    private function categoryToId(string $raw, $categoriesByName): ?int
-    {
-        if ($raw === '') return null;
-
-        if (ctype_digit($raw)) {
-            return (int)$raw;
-        }
-
-        $cat = $categoriesByName[mb_strtolower(trim($raw))] ?? null;
-        return $cat?->id;
-    }
-
-    private function vatToId(string $raw, $vatByName): ?int
-    {
-        if ($raw === '') return null;
-
-        if (ctype_digit($raw)) {
-            return (int)$raw;
-        }
-
-        $v = $vatByName[mb_strtolower(trim($raw))] ?? null;
-        return $v?->id;
-    }
 }

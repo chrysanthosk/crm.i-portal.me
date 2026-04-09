@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ClientRequest;
+use App\Jobs\ImportClientsJob;
 use App\Models\Client;
+use App\Models\ImportLog;
 use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -186,9 +188,7 @@ class ClientController extends Controller
     }
 
     /**
-     * Import clients from CSV.
-     * - Creates new clients
-     * - Updates existing clients by email (if exists)
+     * Import clients from CSV — stores the file and dispatches a background job.
      */
     public function import(Request $request)
     {
@@ -196,139 +196,23 @@ class ClientController extends Controller
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
 
-        $path = $request->file('file')->getRealPath();
-        if (!$path || !is_readable($path)) {
-            return back()->with('error', 'Upload failed: file not readable.');
-        }
+        $file     = $request->file('file');
+        $stored   = $file->store('imports/clients');
 
-        $handle = fopen($path, 'r');
-        if (!$handle) {
-            return back()->with('error', 'Upload failed: cannot open file.');
-        }
-
-        $header = null;
-        $rowNum = 0;
-
-        $created = 0;
-        $updated = 0;
-        $skipped = 0;
-        $errors  = [];
-
-        // Expected headers (case-insensitive)
-        $expected = [
-            'registration_date',
-            'first_name',
-            'last_name',
-            'dob',
-            'mobile',
-            'email',
-            'address',
-            'city',
-            'gender',
-            'notes',
-            'comments',
-        ];
-
-        while (($row = fgetcsv($handle)) !== false) {
-            $rowNum++;
-
-            // skip completely empty lines
-            $rowStr = implode('', array_map(fn($v) => trim((string)$v), $row));
-            if ($rowStr === '') {
-                continue;
-            }
-
-            // first non-empty line is header
-            if ($header === null) {
-                $header = array_map(fn($h) => strtolower(trim((string)$h)), $row);
-
-                // Basic header validation: must contain required columns
-                foreach (['first_name','last_name','dob','mobile','email','gender'] as $req) {
-                    if (!in_array($req, $header, true)) {
-                        fclose($handle);
-                        return back()->with('error', "CSV header missing required column: {$req}");
-                    }
-                }
-
-                continue;
-            }
-
-            // Map row to associative array based on header
-            $assoc = [];
-            foreach ($header as $i => $key) {
-                $assoc[$key] = isset($row[$i]) ? trim((string)$row[$i]) : null;
-            }
-
-            // Normalize keys to the ones we expect (ignore unknown columns)
-            $data = [];
-            foreach ($expected as $k) {
-                $data[$k] = $assoc[$k] ?? null;
-            }
-
-            // Normalize/clean inputs
-            $data['gender'] = $data['gender'] ? ucfirst(strtolower($data['gender'])) : null;
-
-            // Convert registration_date if provided:
-            // accept "YYYY-MM-DD HH:MM" or "YYYY-MM-DDTHH:MM"
-            if (!empty($data['registration_date'])) {
-                $data['registration_date'] = str_replace('T', ' ', $data['registration_date']);
-            } else {
-                $data['registration_date'] = now();
-            }
-
-            // Validate this row with same rules as form (but allow nullable registration_date)
-            $validator = validator($data, [
-                'registration_date' => ['nullable', 'date'],
-                'first_name'        => ['required', 'string', 'max:100'],
-                'last_name'         => ['required', 'string', 'max:100'],
-                'dob'               => ['required', 'date'],
-                'mobile'            => ['required', 'string', 'max:20'],
-                'email'             => ['required', 'email', 'max:150'],
-                'address'           => ['nullable', 'string', 'max:255'],
-                'city'              => ['nullable', 'string', 'max:100'],
-                'gender'            => ['required', Rule::in(['Male','Female','Other'])],
-                'notes'             => ['nullable', 'string', 'max:5000'],
-                'comments'          => ['nullable', 'string', 'max:5000'],
-            ]);
-
-            if ($validator->fails()) {
-                $skipped++;
-                if (count($errors) < 30) {
-                    $errors[] = "Row {$rowNum}: " . implode(' | ', $validator->errors()->all());
-                }
-                continue;
-            }
-
-            $validated = $validator->validated();
-
-            // Upsert by email
-            $existing = Client::query()->where('email', $validated['email'])->first();
-
-            if ($existing) {
-                $existing->update($validated);
-                $updated++;
-            } else {
-                Client::create($validated);
-                $created++;
-            }
-        }
-
-        fclose($handle);
-
-        Audit::log('app', 'client.import', 'client', 0, [
-            'created' => $created,
-            'updated' => $updated,
-            'skipped' => $skipped,
+        $log = ImportLog::create([
+            'type'              => 'clients',
+            'status'            => 'pending',
+            'original_filename' => $file->getClientOriginalName(),
+            'stored_path'       => $stored,
+            'user_id'           => $request->user()?->id,
         ]);
 
-        $msg = "Import finished. Created: {$created}, Updated: {$updated}, Skipped: {$skipped}.";
-        if (!empty($errors)) {
-            return redirect()->route('clients.index')
-                ->with('status', $msg)
-                ->with('import_errors', $errors);
-        }
+        ImportClientsJob::dispatch($log->id);
 
-        return redirect()->route('clients.index')->with('status', $msg);
+        Audit::log('app', 'client.import', 'client', 0, ['import_log_id' => $log->id]);
+
+        return redirect()->route('clients.index')
+            ->with('status', 'Client import queued. The file is being processed in the background.');
     }
 
 }

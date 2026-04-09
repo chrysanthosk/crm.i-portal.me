@@ -2,11 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SmsFailure;
+use App\Jobs\SendSingleSmsJob;
 use App\Models\SmsProvider;
 use App\Models\SmsSetting;
-use App\Models\SmsSuccess;
-use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -34,10 +32,9 @@ class BulkSmsController extends Controller
     }
 
     /**
-     * POST bulk SMS send-now.
-     * Uses SmsService::sendTest(to, message, provider_id override).
+     * POST bulk SMS — dispatches one queued job per recipient and returns immediately.
      */
-    public function send(Request $request, SmsService $sms)
+    public function send(Request $request)
     {
         $data = $request->validate([
             'provider_id'   => ['required', 'integer', 'exists:sms_providers,id'],
@@ -88,10 +85,7 @@ class BulkSmsController extends Controller
             foreach ($rows as $row) {
                 $normalized = $this->normalizePhone($row->mobile);
                 if ($normalized) {
-                    $targets[] = [
-                        'label'  => (string) $row->name,
-                        'mobile' => $normalized,
-                    ];
+                    $targets[] = $normalized;
                 }
             }
         }
@@ -101,18 +95,12 @@ class BulkSmsController extends Controller
         if ($manual !== '') {
             $normalized = $this->normalizePhone($manual);
             if ($normalized) {
-                $targets[] = [
-                    'label'  => 'Manual',
-                    'mobile' => $normalized,
-                ];
+                $targets[] = $normalized;
             }
         }
 
-        // Remove duplicates by mobile
-        $targets = collect($targets)
-            ->unique('mobile')
-            ->values()
-            ->all();
+        // Remove duplicates
+        $targets = array_values(array_unique($targets));
 
         if (empty($targets)) {
             return back()
@@ -120,72 +108,12 @@ class BulkSmsController extends Controller
                 ->with('error', 'Please select at least one recipient or enter a valid manual number.');
         }
 
-        $sent = 0;
-        $failed = 0;
-        $errors = [];
-        $usedProviders = []; // track actual providers used by service (in case it falls back)
-
-        foreach ($targets as $t) {
-            $to = $t['mobile'];
-
-            try {
-                // Use same method as SmsSettingsController (provider override)
-                $result = $sms->sendTest($to, $message, $providerId);
-
-                $used = (string)($result['provider'] ?? $provider->name);
-                $usedProviders[$used] = true;
-
-                SmsSuccess::create([
-                    'mobile'       => $to,
-                    'provider'     => $used,
-                    'success_code' => (string)($result['success_code'] ?? 'OK'),
-                    'sent_at'      => now(),
-                ]);
-
-                $sent++;
-            } catch (\Throwable $ex) {
-                $failed++;
-
-                SmsFailure::create([
-                    'mobile'        => $to,
-                    'provider'      => $provider->name,
-                    'error_message' => $ex->getMessage() ?: get_class($ex),
-                    'failed_at'     => now(),
-                ]);
-
-                $errors[] = "To {$to}: " . ($ex->getMessage() ?: get_class($ex));
-            }
+        foreach ($targets as $to) {
+            SendSingleSmsJob::dispatch($to, $message, $providerId, $provider->name);
         }
 
-        $usedList = implode(', ', array_keys($usedProviders)) ?: $provider->name;
-
-        // Feedback messages
-        if ($sent > 0 && $failed === 0) {
-            return back()->with('status', "{$sent} SMS sent successfully via {$usedList}.");
-        }
-
-        if ($sent > 0 && $failed > 0) {
-            $msg = "{$sent} SMS sent successfully via {$usedList}. {$failed} failed.";
-            $sample = array_slice($errors, 0, 3);
-            if (!empty($sample)) {
-                $msg .= " Errors: " . implode(' | ', $sample);
-                if (count($errors) > 3) {
-                    $msg .= " …and " . (count($errors) - 3) . " more.";
-                }
-            }
-            return back()->with('error', $msg);
-        }
-
-        // All failed
-        $msg = "All SMS failed ({$failed}).";
-        $sample = array_slice($errors, 0, 3);
-        if (!empty($sample)) {
-            $msg .= " Errors: " . implode(' | ', $sample);
-            if (count($errors) > 3) {
-                $msg .= " …and " . (count($errors) - 3) . " more.";
-            }
-        }
-        return back()->with('error', $msg);
+        $count = count($targets);
+        return back()->with('status', "{$count} SMS " . ($count === 1 ? 'job' : 'jobs') . " queued via {$provider->name}. Messages will be sent shortly.");
     }
 
     /**
