@@ -227,7 +227,7 @@
                 <div class="tab-pane fade show active p-0" id="appt" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0">
-                            <thead class="thead-dark">
+                            <thead class="thead">
                             <tr>
                                 <th style="width:140px;">Date & Time</th>
                                 <th>Service</th>
@@ -292,7 +292,7 @@
                 <div class="tab-pane fade p-0" id="sales" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0">
-                            <thead class="thead-dark">
+                            <thead class="thead">
                             <tr>
                                 <th style="width:50px;">#</th>
                                 <th style="width:130px;">Date</th>
@@ -357,7 +357,7 @@
                             @endforelse
                             </tbody>
                             @if($client->sales->isNotEmpty())
-                            <tfoot class="thead-dark">
+                            <tfoot class="thead">
                             <tr>
                                 <td colspan="3" class="text-right font-weight-bold">Total (excl. voided)</td>
                                 <td class="text-right font-weight-bold text-success">€{{ number_format($totalSpent, 2) }}</td>
@@ -374,7 +374,7 @@
                 <div class="tab-pane fade p-0" id="loyalty-history" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-sm mb-0">
-                            <thead class="thead-dark">
+                            <thead class="thead">
                             <tr>
                                 <th style="width:140px;">Date</th>
                                 <th>Reason</th>
