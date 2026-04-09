@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
+use App\Models\ClientLoyalty;
 use App\Models\DashboardSetting;
+use App\Models\LoyaltyTier;
 use App\Models\PaymentMethod;
 use App\Models\Sale;
 use Illuminate\Http\Request;
@@ -68,6 +71,10 @@ class PosController extends Controller
 
         $payments = PaymentMethod::orderBy('name')->get(['id', 'name']);
 
+        $loyaltyRate = (int) (DB::table('loyalty_settings')
+            ->where('key', 'points_per_euro')
+            ->value('value') ?? 0);
+
         return view('pos.index', [
             'products'     => $products,
             'services'     => $services,
@@ -75,6 +82,33 @@ class PosController extends Controller
             'clients'      => $clients,
             'staff'        => $staff,
             'payments'     => $payments,
+            'loyaltyRate'  => $loyaltyRate,
+        ]);
+    }
+
+    public function clientLoyalty(Client $client)
+    {
+        $loyalty      = ClientLoyalty::where('client_id', $client->id)->first();
+        $points       = $loyalty?->points_balance ?? 0;
+        $currentTier  = LoyaltyTier::forPoints($points);
+        $nextTier     = LoyaltyTier::nextTierForPoints($points);
+        $pointsToNext = $nextTier ? max(0, $nextTier->points_min - $points) : null;
+
+        $progress = null;
+        if ($nextTier && $currentTier) {
+            $span = $nextTier->points_min - $currentTier->points_min;
+            $progress = $span > 0 ? min(100, round(($points - $currentTier->points_min) / $span * 100)) : 100;
+        } elseif ($nextTier) {
+            $progress = $nextTier->points_min > 0 ? min(100, round($points / $nextTier->points_min * 100)) : 0;
+        }
+
+        return response()->json([
+            'points'          => $points,
+            'current_tier'    => $currentTier?->name,
+            'next_tier'       => $nextTier?->name,
+            'next_tier_min'   => $nextTier?->points_min,
+            'points_to_next'  => $pointsToNext,
+            'progress'        => $progress,
         ]);
     }
 

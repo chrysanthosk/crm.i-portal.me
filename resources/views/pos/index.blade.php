@@ -177,6 +177,35 @@
               </select>
             </div>
 
+            {{-- Loyalty widget (shown when a client is selected) --}}
+            <div id="loyaltyWidget" style="display:none;" class="mb-3">
+              <div class="card card-body p-2" style="font-size:.85rem;border:1px solid #ffc107;">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <span>
+                    <i class="fas fa-star text-warning mr-1"></i>
+                    <strong id="lwPoints">0</strong> pts
+                    &nbsp;<span id="lwTier" class="badge badge-warning" style="display:none;"></span>
+                  </span>
+                  <a id="lwProfileLink" href="#" target="_blank" class="text-muted small">
+                    <i class="fas fa-external-link-alt"></i> Profile
+                  </a>
+                </div>
+                <div id="lwNextWrap" style="display:none;">
+                  <div class="progress mb-1" style="height:5px;">
+                    <div id="lwBar" class="progress-bar bg-warning" style="width:0%"></div>
+                  </div>
+                  <div class="text-muted" id="lwNextText"></div>
+                </div>
+                @if($loyaltyRate > 0)
+                <div class="text-success mt-1" id="lwEarnWrap" style="display:none;">
+                  <i class="fas fa-plus-circle mr-1"></i>
+                  Earn <strong id="lwEarnPts">0</strong> pts from this sale
+                  <span class="text-muted">({{ $loyaltyRate }} pt/€)</span>
+                </div>
+                @endif
+              </div>
+            </div>
+
             <div class="form-group">
               <label>Staff</label>
               <select name="staff_id" class="form-control" required>
@@ -313,6 +342,8 @@ $(function () {
 
     const paid = parseFloat($('#amountPaid').val()) || 0;
     $('#changeDue').val((paid - grandTotal).toFixed(2));
+
+    $(document).trigger('cart:updated');
   }
 
   window.removeItem = (i) => { cart.splice(i, 1); renderCart(); };
@@ -390,6 +421,59 @@ $(function () {
       $btn.prop('disabled', false);
     });
   });
+  // ---- Loyalty widget ----
+  const loyaltyRate = {{ $loyaltyRate ?? 0 }};
+  const loyaltyUrl  = '{{ rtrim(url('/pos/client'), '/') }}';
+
+  function updateLoyaltyEarn() {
+    if (!loyaltyRate) return;
+    const total = parseFloat($('#cartTotal').text()) || 0;
+    const earn  = Math.floor(total * loyaltyRate);
+    $('#lwEarnPts').text(earn);
+    $('#lwEarnWrap').toggle(earn > 0);
+  }
+
+  $('#clientSelect').on('change', function () {
+    const clientId = $(this).val();
+    if (!clientId) {
+      $('#loyaltyWidget').hide();
+      return;
+    }
+
+    $.getJSON(`${loyaltyUrl}/${clientId}/loyalty`)
+      .done(function (data) {
+        $('#lwPoints').text(data.points.toLocaleString());
+
+        if (data.current_tier) {
+          $('#lwTier').text(data.current_tier).show();
+        } else {
+          $('#lwTier').hide();
+        }
+
+        if (data.next_tier && data.points_to_next !== null) {
+          $('#lwBar').css('width', (data.progress || 0) + '%');
+          $('#lwNextText').text(
+            data.points_to_next.toLocaleString() + ' pts to ' + data.next_tier
+          );
+          $('#lwNextWrap').show();
+        } else {
+          $('#lwNextWrap').hide();
+        }
+
+        // Profile link
+        $('#lwProfileLink').attr('href', '/clients/' + clientId);
+
+        updateLoyaltyEarn();
+        $('#loyaltyWidget').show();
+      })
+      .fail(function () {
+        $('#loyaltyWidget').hide();
+      });
+  });
+
+  // Re-calculate earn preview whenever cart changes
+  $(document).on('cart:updated', updateLoyaltyEarn);
+
 });
 </script>
 @endpush
