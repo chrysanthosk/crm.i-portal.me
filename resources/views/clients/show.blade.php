@@ -221,13 +221,13 @@
                 @endif
             </ul>
 
-            <div class="tab-content border border-top-0 rounded-bottom bg-white">
+            <div class="tab-content border border-top-0 rounded-bottom">
 
                 {{-- APPOINTMENTS TAB --}}
                 <div class="tab-pane fade show active p-0" id="appt" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0">
-                            <thead class="thead-light">
+                            <thead class="thead-dark">
                             <tr>
                                 <th style="width:140px;">Date & Time</th>
                                 <th>Service</th>
@@ -292,7 +292,7 @@
                 <div class="tab-pane fade p-0" id="sales" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-sm table-hover mb-0">
-                            <thead class="thead-light">
+                            <thead class="thead-dark">
                             <tr>
                                 <th style="width:50px;">#</th>
                                 <th style="width:130px;">Date</th>
@@ -338,7 +338,7 @@
 
                             {{-- Payment methods row --}}
                             @if($sale->salePayments->isNotEmpty())
-                            <tr class="{{ $sale->is_voided ? 'table-danger' : 'table-light' }}" style="font-size:.8rem;">
+                            <tr class="{{ $sale->is_voided ? 'table-danger' : '' }}" style="font-size:.8rem;opacity:.75;">
                                 <td></td>
                                 <td colspan="5" class="text-muted pb-2 pt-1">
                                     <i class="fas fa-credit-card mr-1"></i>
@@ -357,7 +357,7 @@
                             @endforelse
                             </tbody>
                             @if($client->sales->isNotEmpty())
-                            <tfoot class="thead-light">
+                            <tfoot class="thead-dark">
                             <tr>
                                 <td colspan="3" class="text-right font-weight-bold">Total (excl. voided)</td>
                                 <td class="text-right font-weight-bold text-success">€{{ number_format($totalSpent, 2) }}</td>
@@ -374,7 +374,7 @@
                 <div class="tab-pane fade p-0" id="loyalty-history" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-sm mb-0">
-                            <thead class="thead-light">
+                            <thead class="thead-dark">
                             <tr>
                                 <th style="width:140px;">Date</th>
                                 <th>Reason</th>
