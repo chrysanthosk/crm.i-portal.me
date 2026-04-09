@@ -7,6 +7,7 @@ use App\Http\Requests\ClientRequest;
 use App\Jobs\ImportClientsJob;
 use App\Models\Client;
 use App\Models\ImportLog;
+use App\Models\LoyaltyTier;
 use App\Support\Audit;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
