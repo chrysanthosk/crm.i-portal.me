@@ -8,6 +8,7 @@ use App\Models\DashboardSetting;
 use App\Models\LoyaltyTier;
 use App\Models\PaymentMethod;
 use App\Models\Sale;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -369,6 +370,58 @@ class PosController extends Controller
             'amountPaid'   => $amountPaid,
             'changeDue'    => $changeDue,
         ]);
+    }
+
+    public function receiptPdf(int $saleId)
+    {
+        $sale = Sale::with([
+            'client',
+            'appointment.client',
+            'appointment.service',
+            'saleServices.service',
+            'saleServices.staff.user',
+            'saleProducts.product',
+            'saleProducts.staff.user',
+            'salePayments.paymentMethod',
+        ])->findOrFail($saleId);
+
+        $saleDate     = $sale->created_at ?? now();
+        $clientName   = $sale->client_name;
+        $clientMobile = $sale->client_mobile;
+        $isAppt       = (bool) $sale->appointment_id;
+        $apptTime     = $isAppt ? $sale->appointment?->start_at : null;
+        $apptService  = $sale->appointment?->service?->name ?? '';
+        $amountPaid   = (float) $sale->salePayments->sum('amount');
+        $changeDue    = max(0, $amountPaid - (float) $sale->grand_total);
+        $paymentStatus = $sale->payment_status;
+
+        $ds = DashboardSetting::query()->first();
+        $company = [
+            'company_name'         => $ds->company_name ?? ($ds->dashboard_name ?? config('app.name')),
+            'company_vat_number'   => $ds->company_vat_number ?? '',
+            'company_phone_number' => $ds->company_phone_number ?? '',
+            'company_address'      => $ds->company_address ?? '',
+        ];
+
+        $pdf = Pdf::loadView('pos.receipt_pdf', [
+            'sale_id'       => $saleId,
+            'sale'          => $sale,
+            'saleDate'      => $saleDate,
+            'clientName'    => $clientName,
+            'clientMobile'  => $clientMobile,
+            'isAppt'        => $isAppt,
+            'apptTime'      => $apptTime,
+            'apptService'   => $apptService,
+            'serviceLines'  => $sale->saleServices,
+            'productLines'  => $sale->saleProducts,
+            'payments'      => $sale->salePayments,
+            'company'       => $company,
+            'amountPaid'    => $amountPaid,
+            'changeDue'     => $changeDue,
+            'paymentStatus' => $paymentStatus,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download("invoice-{$saleId}.pdf");
     }
 
     // ---------- Private helpers ----------
