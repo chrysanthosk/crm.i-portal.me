@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AppointmentRequest;
+use App\Jobs\SendAppointmentConfirmationEmailJob;
 use App\Models\Appointment;
 use App\Models\Client;
 use App\Models\Service;
@@ -242,6 +243,11 @@ class AppointmentController extends Controller
 
         $appointment = Appointment::create($data);
 
+        // Dispatch confirmation email if client has email and status is confirmed
+        if (($data['status'] ?? '') === 'confirmed' && !empty($data['client_id'])) {
+            SendAppointmentConfirmationEmailJob::dispatch($appointment->id);
+        }
+
         if ($request->ajax() || $request->wantsJson() || $request->boolean('modal')) {
             return response()->json(['success' => true, 'id' => $appointment->id]);
         }
@@ -269,7 +275,18 @@ class AppointmentController extends Controller
 
         unset($data['client_first_name'], $data['client_last_name'], $data['client_phone'], $data['service_category_id']);
 
+        $wasConfirmed = $appointment->status === 'confirmed';
         $appointment->update($data);
+
+        // Dispatch confirmation email if status just became confirmed and not already sent
+        if (
+            ($data['status'] ?? '') === 'confirmed' &&
+            !$wasConfirmed &&
+            !$appointment->email_confirmation_sent_at &&
+            !empty($appointment->client_id)
+        ) {
+            SendAppointmentConfirmationEmailJob::dispatch($appointment->id);
+        }
 
         if ($request->ajax() || $request->wantsJson() || $request->boolean('modal')) {
             return response()->json(['success' => true]);
