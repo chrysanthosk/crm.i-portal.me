@@ -27,6 +27,7 @@ if ($initialCategoryId === '' && $initialServiceId !== '') {
     method="POST"
     action="{{ $isEdit ? route('appointments.update', $a) : route('appointments.store') }}"
     data-services-url="{{ route('appointments.services') }}"
+    data-staff-url="{{ route('appointments.staff-for-service') }}"
 >
     @csrf
     @if($isEdit)
@@ -37,7 +38,8 @@ if ($initialCategoryId === '' && $initialServiceId !== '') {
 
         <div class="col-md-6 mb-3">
             <label class="form-label">Staff</label>
-            <select name="staff_id" class="form-control select2" required>
+            <select name="staff_id" class="form-control select2 js-staff" required
+                    data-current="{{ (string)old('staff_id', $a->staff_id) }}">
                 <option value="">Select staff...</option>
                 @foreach($staff as $s)
                     @php $label = $s->user?->name ?? ('Staff #'.$s->id); @endphp
@@ -46,6 +48,9 @@ if ($initialCategoryId === '' && $initialServiceId !== '') {
                     </option>
                 @endforeach
             </select>
+            <div class="text-muted small mt-1 js-staff-hint" style="display:none;">
+                <i class="fas fa-filter text-info"></i> Showing staff qualified for this service.
+            </div>
             <div class="text-muted small mt-1">Drag/drop on the calendar will also update staff/time.</div>
         </div>
 

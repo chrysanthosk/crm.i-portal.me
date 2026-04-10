@@ -112,6 +112,96 @@
 
                 </div>
 
+                {{-- ── Services / Skills ────────────────────────────── --}}
+                <hr>
+                <h5 class="mb-3"><i class="fas fa-hands-helping mr-1"></i> Services / Skills</h5>
+                <p class="text-muted small mb-2">Tick the services this staff member is certified to perform.</p>
+
+                @if($serviceCategories->isEmpty())
+                    <p class="text-muted small">No services found. Add services first.</p>
+                @else
+                    <div class="row">
+                    @foreach($serviceCategories as $cat)
+                        @if($cat->services->isNotEmpty())
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header py-2 px-3">
+                                    <strong class="small">{{ $cat->name }}</strong>
+                                    <button type="button" class="btn btn-xs btn-link float-right p-0 toggle-cat"
+                                            data-cat="{{ $cat->id }}">all</button>
+                                </div>
+                                <div class="card-body py-2 px-3">
+                                    @foreach($cat->services as $svc)
+                                    <div class="form-check mb-1">
+                                        <input class="form-check-input skill-cb-{{ $cat->id }}"
+                                               type="checkbox"
+                                               name="service_ids[]"
+                                               value="{{ $svc->id }}"
+                                               id="svc_{{ $svc->id }}"
+                                               @checked(in_array($svc->id, $staffServiceIds))>
+                                        <label class="form-check-label small" for="svc_{{ $svc->id }}">
+                                            {{ $svc->name }}
+                                        </label>
+                                    </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+                        @endif
+                    @endforeach
+                    </div>
+                @endif
+
+                {{-- ── Working Hours ─────────────────────────────────── --}}
+                <hr>
+                <h5 class="mb-3"><i class="fas fa-clock mr-1"></i> Working Hours</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:120px;">Day</th>
+                                <th style="width:100px;">Day Off</th>
+                                <th style="width:130px;">Start</th>
+                                <th style="width:130px;">End</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach(\App\Models\StaffAvailability::DAY_NAMES as $dow => $dayName)
+                            @php $avail = $availabilityByDay[$dow] ?? null; @endphp
+                            <tr>
+                                <td><strong>{{ $dayName }}</strong></td>
+                                <td>
+                                    <div class="form-check">
+                                        <input class="form-check-input day-off-cb"
+                                               type="checkbox"
+                                               name="availability[{{ $dow }}][is_day_off]"
+                                               id="dayoff_{{ $dow }}"
+                                               data-dow="{{ $dow }}"
+                                               @checked($avail?->is_day_off)>
+                                        <label class="form-check-label small" for="dayoff_{{ $dow }}">Off</label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <input type="time"
+                                           class="form-control form-control-sm avail-time-{{ $dow }}"
+                                           name="availability[{{ $dow }}][start_time]"
+                                           value="{{ $avail?->start_time ?? '09:00' }}"
+                                           @if($avail?->is_day_off) disabled @endif>
+                                </td>
+                                <td>
+                                    <input type="time"
+                                           class="form-control form-control-sm avail-time-{{ $dow }}"
+                                           name="availability[{{ $dow }}][end_time]"
+                                           value="{{ $avail?->end_time ?? '18:00' }}"
+                                           @if($avail?->is_day_off) disabled @endif>
+                                </td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save mr-2"></i> Save Changes
                 </button>
@@ -151,5 +241,25 @@
 
         syncFrom(text.value);
     })();
+
+    // Toggle all services in a category
+    document.querySelectorAll('.toggle-cat').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const catId = this.dataset.cat;
+            const boxes = document.querySelectorAll('.skill-cb-' + catId);
+            const allChecked = [...boxes].every(b => b.checked);
+            boxes.forEach(b => b.checked = !allChecked);
+        });
+    });
+
+    // Day-off toggle disables time inputs
+    document.querySelectorAll('.day-off-cb').forEach(cb => {
+        cb.addEventListener('change', function () {
+            const dow = this.dataset.dow;
+            document.querySelectorAll('.avail-time-' + dow).forEach(input => {
+                input.disabled = this.checked;
+            });
+        });
+    });
 </script>
 @endpush
