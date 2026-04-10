@@ -255,6 +255,7 @@
             eventResourceEditable: true,
 
             resources: resources,
+            businessHours: true, // per-resource businessHours defined in the resource objects
             events: '{{ route('appointments.events') }}',
 
             eventClassNames: function(arg){

@@ -22,15 +22,40 @@ class AppointmentController extends Controller
     public function resources()
     {
         $staff = Staff::query()
-            ->with('user:id,name')
+            ->with(['user:id,name', 'availabilities'])
             ->orderBy('id')
             ->get();
 
-        $resources = $staff->map(function ($s) {
+        // FullCalendar day-of-week uses 0=Sun,1=Mon…6=Sat
+        // Our StaffAvailability uses 0=Mon…6=Sun — convert accordingly
+        $fcDow = [
+            0 => 1, // Mon
+            1 => 2, // Tue
+            2 => 3, // Wed
+            3 => 4, // Thu
+            4 => 5, // Fri
+            5 => 6, // Sat
+            6 => 0, // Sun
+        ];
+
+        $resources = $staff->map(function ($s) use ($fcDow) {
             $title = $s->user?->name ?? ('Staff #' . $s->id);
+
+            $businessHours = [];
+            foreach ($s->availabilities as $avail) {
+                if ($avail->is_day_off) continue;
+
+                $businessHours[] = [
+                    'daysOfWeek'  => [$fcDow[$avail->day_of_week]],
+                    'startTime'   => substr($avail->start_time, 0, 5), // HH:mm
+                    'endTime'     => substr($avail->end_time, 0, 5),
+                ];
+            }
+
             return [
-                'id'    => (string) $s->id,
-                'title' => $title,
+                'id'            => (string) $s->id,
+                'title'         => $title,
+                'businessHours' => $businessHours ?: false, // false = no restriction
             ];
         })->values();
 
