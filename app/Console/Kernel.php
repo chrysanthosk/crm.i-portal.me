@@ -9,12 +9,17 @@ class Kernel extends ConsoleKernel
 {
     protected function schedule(Schedule $schedule): void
     {
-        // Appointment reminders: due reminders are checked every minute
+        // Appointment SMS reminders: checked every minute
         $schedule->command('sms:send-appointment-reminders')
             ->everyMinute()
             ->withoutOverlapping();
 
-        // Birthday SMS: once daily (adjust time as you like)
+        // Appointment email reminders: checked every minute
+        $schedule->command('email:send-appointment-reminders')
+            ->everyMinute()
+            ->withoutOverlapping();
+
+        // Birthday SMS: once daily
         $schedule->command('sms:send-birthday')
             ->dailyAt('09:00')
             ->withoutOverlapping();

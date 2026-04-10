@@ -32,13 +32,16 @@ class Appointment extends Model
         'sms_provider_message_id',
         'sms_last_error',
 
+        'email_confirmation_sent_at',
+        'email_reminder_sent_at',
+
         'created_by',
         'updated_by',
     ];
 
     protected $casts = [
-        'start_at' => 'datetime',
-        'end_at' => 'datetime',
+        'start_at'   => 'datetime',
+        'end_at'     => 'datetime',
         'reminder_at' => 'datetime',
         'sms_sent_at' => 'datetime',
         'sms_failed_at' => 'datetime',
@@ -46,6 +49,8 @@ class Appointment extends Model
         'sms_sent_success' => 'boolean',
         'sms_send_failed' => 'boolean',
         'sms_attempts' => 'integer',
+        'email_confirmation_sent_at' => 'datetime',
+        'email_reminder_sent_at'     => 'datetime',
     ];
 
     public function staff()
