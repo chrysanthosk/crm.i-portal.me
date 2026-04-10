@@ -411,6 +411,54 @@
             loadServicesForCategory(catId, '');
         });
 
+        // ── Staff filter by service skill ───────────────────────
+        const staffUrl = $form.data('staff-url');
+        const $staffSel = $container.find('.js-staff');
+        const $staffHint = $container.find('.js-staff-hint');
+        const allStaffHtml = $staffSel.html(); // snapshot of full staff list
+
+        function populateStaff(staffList, selectedId) {
+            const opts = ['<option value="">Select staff...</option>'];
+            staffList.forEach(s => {
+                const sel = (String(selectedId) !== '' && String(s.id) === String(selectedId)) ? 'selected' : '';
+                opts.push(`<option value="${s.id}" ${sel}>${$('<div/>').text(s.name).html()}</option>`);
+            });
+            $staffSel.html(opts.join(''));
+            $staffSel.trigger('change.select2');
+        }
+
+        function loadStaffForService(serviceId) {
+            if (!staffUrl || !serviceId) {
+                $staffSel.html(allStaffHtml).trigger('change.select2');
+                $staffHint.hide();
+                return;
+            }
+
+            const currentStaff = $staffSel.data('current') || $staffSel.val();
+
+            $.getJSON(staffUrl, { service_id: serviceId })
+                .done(function(resp){
+                    const list = (resp && resp.data) ? resp.data : [];
+                    populateStaff(list, currentStaff);
+                    $staffHint.toggle(list.length > 0);
+                })
+                .fail(function(xhr){
+                    console.error('staffForService failed', xhr.status, xhr.responseText);
+                    $staffSel.html(allStaffHtml).trigger('change.select2');
+                    $staffHint.hide();
+                });
+        }
+
+        // trigger on service change
+        $svc.off('change.staff').on('change.staff', function(){
+            loadStaffForService($(this).val());
+        });
+
+        // trigger on initial load for edit modal
+        if (initialService) {
+            loadStaffForService(initialService);
+        }
+
         // Submit
         $container.find('form').on('submit', function(e){
             e.preventDefault();

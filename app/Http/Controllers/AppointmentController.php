@@ -81,6 +81,36 @@ class AppointmentController extends Controller
         return response()->json($events);
     }
 
+    public function staffForService(Request $request)
+    {
+        $request->validate([
+            'service_id' => ['nullable', 'integer'],
+        ]);
+
+        $serviceId = (int) $request->input('service_id');
+
+        $q = Staff::query()->with('user:id,name')->orderBy('id');
+
+        // If a service is specified, filter to staff who have that skill.
+        // If no skills are configured for any staff, fall back to all staff.
+        if ($serviceId > 0) {
+            $skilled = Staff::query()
+                ->whereHas('services', fn ($s) => $s->where('services.id', $serviceId))
+                ->pluck('id');
+
+            if ($skilled->isNotEmpty()) {
+                $q->whereIn('id', $skilled);
+            }
+        }
+
+        return response()->json([
+            'data' => $q->get()->map(fn ($s) => [
+                'id'   => (int) $s->id,
+                'name' => $s->user?->name ?? ('Staff #' . $s->id),
+            ])->values()
+        ]);
+    }
+
     public function servicesByCategory(Request $request)
     {
         $request->validate([

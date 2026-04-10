@@ -37,4 +37,27 @@ class Staff extends Model
     {
         return $this->belongsTo(Role::class);
     }
+
+    public function services()
+    {
+        return $this->belongsToMany(Service::class, 'staff_skills')
+                    ->withTimestamps();
+    }
+
+    public function availabilities()
+    {
+        return $this->hasMany(StaffAvailability::class)->orderBy('day_of_week');
+    }
+
+    /**
+     * Returns availability keyed by day_of_week (0–6) for easy blade access.
+     */
+    public function availabilityByDay(): array
+    {
+        $map = [];
+        foreach ($this->availabilities as $a) {
+            $map[$a->day_of_week] = $a;
+        }
+        return $map;
+    }
 }

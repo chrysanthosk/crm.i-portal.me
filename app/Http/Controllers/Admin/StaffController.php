@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Role;
+use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\Staff;
+use App\Models\StaffAvailability;
 use App\Models\User;
 use App\Support\Audit;
 use Illuminate\Http\Request;
@@ -57,15 +60,21 @@ class StaffController extends Controller
 
     public function edit(Staff $staffMember)
     {
-        $staffMember->load(['user', 'role']);
+        $staffMember->load(['user', 'role', 'services', 'availabilities']);
 
-        $roles = Role::query()->orderBy('role_key')->get();
-        $users = User::query()->orderBy('name')->get();
+        $roles             = Role::query()->orderBy('role_key')->get();
+        $users             = User::query()->orderBy('name')->get();
+        $serviceCategories = ServiceCategory::query()->with(['services' => fn($q) => $q->orderBy('name')])->orderBy('name')->get();
+        $staffServiceIds   = $staffMember->services->pluck('id')->all();
+        $availabilityByDay = $staffMember->availabilityByDay();
 
         return view('staff.edit', [
-            'staffMember' => $staffMember,
-            'roles' => $roles,
-            'users' => $users,
+            'staffMember'       => $staffMember,
+            'roles'             => $roles,
+            'users'             => $users,
+            'serviceCategories' => $serviceCategories,
+            'staffServiceIds'   => $staffServiceIds,
+            'availabilityByDay' => $availabilityByDay,
         ]);
     }
 
@@ -89,6 +98,29 @@ class StaffController extends Controller
         $data['annual_leave_days'] = (float)($data['annual_leave_days'] ?? 0);
 
         $staffMember->update($data);
+
+        // Sync skills (service IDs checkboxes)
+        $skillIds = array_filter(array_map('intval', (array) $request->input('service_ids', [])));
+        $validIds = Service::query()->whereIn('id', $skillIds)->pluck('id')->all();
+        $staffMember->services()->sync($validIds);
+
+        // Save availability (one row per day 0–6)
+        $availInput = $request->input('availability', []);
+        foreach (range(0, 6) as $day) {
+            $row       = $availInput[$day] ?? [];
+            $isDayOff  = isset($row['is_day_off']);
+            $startTime = $row['start_time'] ?? '09:00';
+            $endTime   = $row['end_time']   ?? '18:00';
+
+            StaffAvailability::updateOrCreate(
+                ['staff_id' => $staffMember->id, 'day_of_week' => $day],
+                [
+                    'start_time' => $isDayOff ? '09:00' : $startTime,
+                    'end_time'   => $isDayOff ? '18:00' : $endTime,
+                    'is_day_off' => $isDayOff,
+                ]
+            );
+        }
 
         Audit::log('admin', 'staff.update', 'staff', $staffMember->id, [
             'user_id' => $staffMember->user_id,

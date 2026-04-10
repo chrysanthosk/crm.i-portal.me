@@ -156,6 +156,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/resources', [AppointmentController::class, 'resources'])->name('resources');
         Route::get('/events', [AppointmentController::class, 'events'])->name('events');
         Route::get('/services', [AppointmentController::class, 'servicesByCategory'])->name('services');
+        Route::get('/staff-for-service', [AppointmentController::class, 'staffForService'])->name('staff-for-service');
         Route::patch('/{appointment}/move', [AppointmentController::class, 'move'])->name('move');
 
         Route::get('/list', [AppointmentController::class, 'list'])->name('list');
