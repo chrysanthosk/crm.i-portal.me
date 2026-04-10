@@ -196,6 +196,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/pos', [PosController::class, 'index'])->name('pos.index');
         Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
         Route::get('/pos/receipt/{sale}', [PosController::class, 'receipt'])->name('pos.receipt');
+        Route::get('/pos/receipt/{sale}/pdf', [PosController::class, 'receiptPdf'])->name('pos.receipt.pdf');
         Route::get('/pos/client/{client}/loyalty', [PosController::class, 'clientLoyalty'])->name('pos.client.loyalty');
 
         Route::get('/pos/sales', [PosSalesController::class, 'index'])->name('pos.sales.index');

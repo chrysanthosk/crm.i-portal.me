@@ -235,6 +235,13 @@
                   >
                     <i class="fas fa-print"></i> Receipt
                   </a>
+                  <a
+                    href="{{ route('pos.receipt.pdf', ['sale' => $sid]) }}"
+                    class="btn btn-sm btn-outline-primary"
+                    title="Download PDF invoice"
+                  >
+                    <i class="fas fa-file-pdf"></i> PDF
+                  </a>
 
                   @if(!$isVoided)
                     <form

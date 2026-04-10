@@ -178,6 +178,10 @@
 
   <div class="no-print" style="margin-top:10px; text-align:center;">
     <button onclick="window.print()">Print</button>
+    <a href="{{ route('pos.receipt.pdf', $sale_id) }}"
+       style="margin-left:8px; padding:4px 10px; background:#2563eb; color:#fff; text-decoration:none; border-radius:4px; font-size:12px;">
+      Download PDF
+    </a>
   </div>
 
   <script>
